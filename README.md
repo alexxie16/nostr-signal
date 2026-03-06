@@ -43,16 +43,6 @@ Copy `.env.example` to `.env.local` and adjust:
 - `NEXT_PUBLIC_NOSTR_RELAYS` — Relay URLs for client-side posting
 - `NOSTR_USE_MOCK` — Set to `true` to always use mock data
 
-## Seed Script
-
-To publish sample kind 1 events for demo data:
-
-```bash
-npm run seed
-```
-
-Optional: set `NOSTR_SECRET_KEY` (hex) to use an existing key; otherwise a random key is generated.
-
 ## API
 
 ```
