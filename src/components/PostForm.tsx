@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { hasNostrExtension, postNote } from "@/lib/postNostr";
 
 const LOCATIONS = ["madeira", "lisboa", "porto"];
@@ -13,8 +13,11 @@ export function PostForm() {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [hasExtension, setHasExtension] = useState<boolean | null>(null);
 
-  const hasExtension = hasNostrExtension();
+  useEffect(() => {
+    setHasExtension(hasNostrExtension());
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -51,7 +54,11 @@ export function PostForm() {
       <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">
         Post a recommendation
       </h2>
-      {!hasExtension ? (
+      {hasExtension === null ? (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Checking for Nostr extension…</p>
+        </div>
+      ) : !hasExtension ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
           <p className="text-sm text-amber-800 dark:text-amber-200">
             Install a Nostr extension (e.g.{" "}

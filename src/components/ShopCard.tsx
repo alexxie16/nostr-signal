@@ -1,4 +1,5 @@
 import type { ShopReputation } from "@/lib/types";
+import { InfoButton } from "@/components/ScoreInfo";
 
 interface ShopCardProps {
   shop: ShopReputation;
@@ -39,9 +40,9 @@ export function ShopCard({ shop, rank, isMocked, onViewNotes }: ShopCardProps) {
             {shop.raw.zapSatsTotal} sats)
           </div>
           <div className="mt-3 space-y-2">
-            <ScoreBar label="Activity" value={shop.activityScore} />
-            <ScoreBar label="Endorsement" value={shop.endorsementScore} />
-            <ScoreBar label="Zap" value={shop.zapScore} />
+            <ScoreBar label="Activity" value={shop.activityScore} scoreKey="activity" />
+            <ScoreBar label="Endorsement" value={shop.endorsementScore} scoreKey="endorsement" />
+            <ScoreBar label="Zap" value={shop.zapScore} scoreKey="zap" />
           </div>
         </div>
         <div className="shrink-0 text-right">
@@ -54,12 +55,23 @@ export function ShopCard({ shop, rank, isMocked, onViewNotes }: ShopCardProps) {
   );
 }
 
-function ScoreBar({ label, value }: { label: string; value: number }) {
+function ScoreBar({
+  label,
+  value,
+  scoreKey,
+}: {
+  label: string;
+  value: number;
+  scoreKey: "activity" | "endorsement" | "zap";
+}) {
   const pct = Math.round(value * 100);
   return (
     <div>
-      <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-        <span>{label}</span>
+      <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+        <span className="flex items-center">
+          {label}
+          <InfoButton scoreKey={scoreKey} />
+        </span>
         <span>{pct}%</span>
       </div>
       <div className="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">

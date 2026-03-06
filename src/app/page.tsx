@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ShopCard } from "@/components/ShopCard";
 import { PostForm } from "@/components/PostForm";
 import { NotesModal } from "@/components/NotesModal";
+import { InfoButton } from "@/components/ScoreInfo";
 import type { ShopReputation } from "@/lib/types";
 
 const LOCATIONS = ["madeira", "lisboa", "porto"];
@@ -113,9 +114,10 @@ export default function Home() {
               <div>
                 <label
                   htmlFor="activityWeight"
-                  className="mb-1 block text-xs text-gray-500 dark:text-gray-400"
+                  className="mb-1 flex items-center text-xs text-gray-500 dark:text-gray-400"
                 >
                   Activity
+                  <InfoButton scoreKey="activity" />
                 </label>
                 <input
                   id="activityWeight"
@@ -131,9 +133,10 @@ export default function Home() {
               <div>
                 <label
                   htmlFor="endorsementWeight"
-                  className="mb-1 block text-xs text-gray-500 dark:text-gray-400"
+                  className="mb-1 flex items-center text-xs text-gray-500 dark:text-gray-400"
                 >
                   Endorsement
+                  <InfoButton scoreKey="endorsement" />
                 </label>
                 <input
                   id="endorsementWeight"
@@ -149,9 +152,10 @@ export default function Home() {
               <div>
                 <label
                   htmlFor="zapWeight"
-                  className="mb-1 block text-xs text-gray-500 dark:text-gray-400"
+                  className="mb-1 flex items-center text-xs text-gray-500 dark:text-gray-400"
                 >
                   Zap
+                  <InfoButton scoreKey="zap" />
                 </label>
                 <input
                   id="zapWeight"
