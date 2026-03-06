@@ -55,7 +55,7 @@ export default function Home() {
       <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6 lg:px-8">
         <header className="mb-10 text-center">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            Local Signal
+            Local Spot from Nostr Signals
           </h1>
           <p className="mt-2 text-gray-600 dark:text-gray-400">
             Find trusted local spots powered by Nostr

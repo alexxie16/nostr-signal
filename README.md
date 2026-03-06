@@ -1,4 +1,4 @@
-# Local Signal
+# Local Spot from Nostr Signals
 
 Discover trusted local spots via Nostr reputation signals. Example: finding good local beer shops in Madeira by aggregating Nostr signals.
 

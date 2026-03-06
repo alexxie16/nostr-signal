@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Local Signal — Find Trusted Local Spots",
+  title: "Local Spot from Nostr Signals",
   description: "Discover trusted local spots powered by Nostr reputation signals",
 };
 
