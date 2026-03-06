@@ -60,6 +60,34 @@ export async function fetchNotes(
   }));
 }
 
+/** Fetch kind 1 events by ID(s) */
+export async function fetchEventsByIds(ids: string[]): Promise<NostrEvent[]> {
+  const realIds = ids.filter((id) => id && id.length === 64 && /^[a-f0-9]+$/.test(id));
+  if (realIds.length === 0) return [];
+
+  const pool = new SimplePool();
+  const relays = getRelays();
+
+  const filter = {
+    kinds: [1],
+    ids: realIds,
+    limit: realIds.length,
+  };
+
+  const events = await pool.querySync(relays, filter);
+  pool.close(relays);
+
+  return events.map((e) => ({
+    id: e.id,
+    kind: e.kind,
+    pubkey: e.pubkey,
+    content: e.content,
+    tags: e.tags,
+    created_at: e.created_at,
+    sig: e.sig,
+  }));
+}
+
 /** Fetch kind 7 (reaction) events that reference the given event IDs */
 export async function fetchReactions(
   eventIds: string[]

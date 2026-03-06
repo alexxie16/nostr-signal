@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ShopCard } from "@/components/ShopCard";
 import { PostForm } from "@/components/PostForm";
+import { NotesModal } from "@/components/NotesModal";
 import type { ShopReputation } from "@/lib/types";
 
 const LOCATIONS = ["madeira", "lisboa", "porto"];
@@ -21,6 +22,7 @@ export default function Home() {
   const [shops, setShops] = useState<ShopReputation[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [useMock, setUseMock] = useState<boolean | null>(null);
+  const [selectedShop, setSelectedShop] = useState<ShopReputation | null>(null);
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -193,9 +195,18 @@ export default function Home() {
             </h2>
             <div className="space-y-4">
               {shops.map((shop, i) => (
-                <ShopCard key={shop.slug} shop={shop} rank={i + 1} isMocked={useMock ?? false} />
+                <ShopCard
+                  key={shop.slug}
+                  shop={shop}
+                  rank={i + 1}
+                  isMocked={useMock ?? false}
+                  onViewNotes={setSelectedShop}
+                />
               ))}
             </div>
+            {selectedShop && (
+              <NotesModal shop={selectedShop} onClose={() => setSelectedShop(null)} />
+            )}
           </section>
         )}
       </div>

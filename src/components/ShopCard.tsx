@@ -4,9 +4,10 @@ interface ShopCardProps {
   shop: ShopReputation;
   rank: number;
   isMocked?: boolean;
+  onViewNotes?: (shop: ShopReputation) => void;
 }
 
-export function ShopCard({ shop, rank, isMocked }: ShopCardProps) {
+export function ShopCard({ shop, rank, isMocked, onViewNotes }: ShopCardProps) {
   const scorePercent = (n: number) => Math.round(n * 100);
   const displayName = isMocked ? `[mock] ${shop.displayName}` : shop.displayName;
 
@@ -22,10 +23,21 @@ export function ShopCard({ shop, rank, isMocked }: ShopCardProps) {
               {displayName}
             </h3>
           </div>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {shop.raw.noteCount} notes · {shop.raw.reactionCount} reactions ·{" "}
-            {shop.raw.zapCount} zaps ({shop.raw.zapSatsTotal} sats)
-          </p>
+          <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            {shop.raw.noteCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => onViewNotes?.(shop)}
+                className="font-medium text-amber-600 hover:underline dark:text-amber-400"
+              >
+                {shop.raw.noteCount} notes
+              </button>
+            ) : (
+              <span>0 notes</span>
+            )}{" "}
+            · {shop.raw.reactionCount} reactions · {shop.raw.zapCount} zaps (
+            {shop.raw.zapSatsTotal} sats)
+          </div>
           <div className="mt-3 space-y-2">
             <ScoreBar label="Activity" value={shop.activityScore} />
             <ScoreBar label="Endorsement" value={shop.endorsementScore} />
