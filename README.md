@@ -35,6 +35,8 @@ Open [http://localhost:3000](http://localhost:3000), select location and categor
 
 Use the "Post a recommendation" form to publish kind 1 notes with location, category, and shop tags. Requires a Nostr browser extension (e.g. [nos2x](https://github.com/nostr-protocol/nostr-extension), [Alby](https://getalby.com)).
 
+Posting is done **client-side** via NIP-07: the extension signs the event, then the client publishes directly to relays. There is no server-side POST API.
+
 ## Environment
 
 Copy `.env.example` to `.env.local` and adjust:
@@ -60,3 +62,17 @@ Returns a ranked list of shops with reputation scores. Query params:
 | `zapWeight`        | 0.2       | Weight for zap score         |
 
 Weights are normalized to sum to 1.
+
+### Note API
+
+```
+GET /api/note?ids=<id1>,<id2>,...
+```
+
+Returns kind 1 note events by ID. Used to fetch note content when viewing notes for a shop.
+
+| Param | Required | Description                           |
+|-------|----------|---------------------------------------|
+| `ids` | Yes      | Comma-separated Nostr event IDs (hex) |
+
+Response: `{ notes: NostrEvent[] }`
