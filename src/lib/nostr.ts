@@ -167,3 +167,85 @@ export function parseZapAmount(zapEvent: NostrEvent): number {
     return 0;
   }
 }
+
+/**
+ * Fetch kind 3 (contact list) events for a list of pubkeys.
+ * Returns a map of pubkey -> list of followed pubkeys.
+ */
+export async function fetchContactLists(
+  pubkeys: string[]
+): Promise<Map<string, Set<string>>> {
+  if (pubkeys.length === 0) return new Map();
+
+  const pool = new SimplePool();
+  const relays = getRelays();
+
+  const filter = {
+    kinds: [3],
+    authors: pubkeys,
+    limit: pubkeys.length,
+  };
+
+  const events = await pool.querySync(relays, filter);
+  pool.close(relays);
+
+  const contactLists = new Map<string, Set<string>>();
+  for (const event of events) {
+    const followed = new Set<string>();
+    for (const tag of event.tags) {
+      if (tag[0] === "p" && tag[1]) {
+        followed.add(tag[1]);
+      }
+    }
+    contactLists.set(event.pubkey, followed);
+  }
+
+  return contactLists;
+}
+
+/**
+ * Calculate trust scores for authors based on a user's follow graph.
+ * userPubkey: the user's public key
+ * authorPubkeys: list of author pubkeys to score
+ * Returns: Map of pubkey -> trust score (0-1)
+ *   - 1.0 = user follows directly
+ *   - 0.75 = user follows someone who follows this author
+ *   - 0.5 = neutral (default)
+ *   - 0.25 = less trusted (user's follows don't follow this author)
+ */
+export async function calculateTrustScores(
+  userPubkey: string,
+  authorPubkeys: string[]
+): Promise<Map<string, number>> {
+  if (!userPubkey || authorPubkeys.length === 0) {
+    return new Map(authorPubkeys.map((pk) => [pk, 0.5]));
+  }
+
+  const uniqueAuthors = [...new Set(authorPubkeys)];
+  const allPubkeys = [userPubkey, ...uniqueAuthors];
+
+  const contactLists = await fetchContactLists(allPubkeys);
+  const userFollows = contactLists.get(userPubkey) ?? new Set();
+
+  const trustScores = new Map<string, number>();
+
+  for (const author of uniqueAuthors) {
+    if (userFollows.has(author)) {
+      // Direct follow: highest trust
+      trustScores.set(author, 1.0);
+    } else {
+      // Check if any followed user follows this author (distance 2)
+      let foundIndirect = false;
+      for (const followed of userFollows) {
+        const followedList = contactLists.get(followed) ?? new Set();
+        if (followedList.has(author)) {
+          foundIndirect = true;
+          break;
+        }
+      }
+      trustScores.set(author, foundIndirect ? 0.75 : 0.5);
+    }
+  }
+
+  return trustScores;
+}
