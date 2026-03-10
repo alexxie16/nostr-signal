@@ -10,9 +10,10 @@ import type { ShopReputation } from "@/lib/types";
 const LOCATIONS = ["madeira", "lisboa", "porto"];
 const DOMAINS = ["beer-shop", "restaurant", "cafe"];
 
-const DEFAULT_ACTIVITY_WEIGHT = 0.5;
-const DEFAULT_ENDORSEMENT_WEIGHT = 0.3;
+const DEFAULT_ACTIVITY_WEIGHT = 0.4;
+const DEFAULT_ENDORSEMENT_WEIGHT = 0.25;
 const DEFAULT_ZAP_WEIGHT = 0.2;
+const DEFAULT_TRUST_WEIGHT = 0.15;
 
 export default function Home() {
   const [location, setLocation] = useState("madeira");
@@ -20,6 +21,7 @@ export default function Home() {
   const [activityWeight, setActivityWeight] = useState(DEFAULT_ACTIVITY_WEIGHT);
   const [endorsementWeight, setEndorsementWeight] = useState(DEFAULT_ENDORSEMENT_WEIGHT);
   const [zapWeight, setZapWeight] = useState(DEFAULT_ZAP_WEIGHT);
+  const [trustWeight, setTrustWeight] = useState(DEFAULT_TRUST_WEIGHT);
   const [shops, setShops] = useState<ShopReputation[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [useMock, setUseMock] = useState<boolean | null>(null);
@@ -37,6 +39,7 @@ export default function Home() {
         activityWeight: String(activityWeight),
         endorsementWeight: String(endorsementWeight),
         zapWeight: String(zapWeight),
+        trustWeight: String(trustWeight),
       });
       const res = await fetch(`/api/reputation?${params}`);
       const data = await res.json();
@@ -59,7 +62,7 @@ export default function Home() {
             Local Spot from Nostr Signals
           </h1>
           <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Find trusted local spots powered by Nostr
+            Find trusted local spots powered by Nostr web of trust
           </p>
         </header>
 
@@ -110,7 +113,7 @@ export default function Home() {
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Ranking weights
             </p>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <label
                   htmlFor="activityWeight"
@@ -165,6 +168,25 @@ export default function Home() {
                   step={0.1}
                   value={zapWeight}
                   onChange={(e) => setZapWeight(parseFloat(e.target.value) || 0)}
+                  className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="trustWeight"
+                  className="mb-1 flex items-center text-xs text-gray-500 dark:text-gray-400"
+                >
+                  Trust
+                  <InfoButton scoreKey="trust" />
+                </label>
+                <input
+                  id="trustWeight"
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.1}
+                  value={trustWeight}
+                  onChange={(e) => setTrustWeight(parseFloat(e.target.value) || 0)}
                   className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
                 />
               </div>

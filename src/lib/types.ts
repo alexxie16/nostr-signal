@@ -17,6 +17,7 @@ export interface ShopSignals {
   reactionCount: number;
   zapCount: number;
   zapSatsTotal: number;
+  trustScore?: number; // Average trust score of note authors
 }
 
 /** Normalized and weighted reputation for a shop */
@@ -26,6 +27,7 @@ export interface ShopReputation {
   activityScore: number;
   endorsementScore: number;
   zapScore: number;
+  trustScore: number;
   totalScore: number;
   raw: ShopSignals;
 }
