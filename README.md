@@ -55,8 +55,8 @@ Returns a ranked list of shops with reputation scores. Query params:
 
 | Param              | Default   | Description                  |
 |--------------------|-----------|------------------------------|
-| `location`         | madeira   | Location tag filter          |
-| `domain`           | beer-shop | Category tag filter          |
+| `location`         | madeira   | Location tag filter (e.g. madeira, lisboa)          |
+| `domain`           | beer-shop | Category tag filter (e.g. beer-shop, restaurant)          |
 | `activityWeight`   | 0.5       | Weight for activity score    |
 | `endorsementWeight`| 0.3       | Weight for endorsement score |
 | `zapWeight`        | 0.2       | Weight for zap score         |
