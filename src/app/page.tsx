@@ -15,6 +15,18 @@ const DEFAULT_ENDORSEMENT_WEIGHT = 0.25;
 const DEFAULT_ZAP_WEIGHT = 0.2;
 const DEFAULT_TRUST_WEIGHT = 0.15;
 
+type SearchStatus =
+  | { type: "success"; text: string }
+  | { type: "warning"; text: string }
+  | { type: "error"; text: string };
+
+interface ReputationResponse {
+  shops?: ShopReputation[];
+  useMock?: boolean;
+  message?: string;
+  error?: string;
+}
+
 export default function Home() {
   const [location, setLocation] = useState("madeira");
   const [domain, setDomain] = useState("beer-shop");
@@ -26,12 +38,14 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [useMock, setUseMock] = useState<boolean | null>(null);
   const [selectedShop, setSelectedShop] = useState<ShopReputation | null>(null);
+  const [searchStatus, setSearchStatus] = useState<SearchStatus | null>(null);
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setShops(null);
     setUseMock(null);
+    setSearchStatus(null);
     try {
       const params = new URLSearchParams({
         location,
@@ -42,13 +56,49 @@ export default function Home() {
         trustWeight: String(trustWeight),
       });
       const res = await fetch(`/api/reputation?${params}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Request failed");
-      setShops(data.shops ?? []);
-      setUseMock(data.useMock ?? false);
+      const data: ReputationResponse = await res.json();
+
+      const nextShops = data.shops ?? [];
+      const nextUseMock = data.useMock ?? false;
+
+      setShops(nextShops);
+      setUseMock(nextUseMock);
+
+      if (!res.ok) {
+        if (nextShops.length > 0) {
+          setSearchStatus({
+            type: "warning",
+            text:
+              data.message ?? data.error ?? "Nostr relays failed, so mock results are shown instead.",
+          });
+          return;
+        }
+        throw new Error(data.error ?? data.message ?? "Request failed");
+      }
+
+      if (data.message) {
+        setSearchStatus({
+          type: nextUseMock ? "warning" : "success",
+          text: data.message,
+        });
+      } else if (nextUseMock) {
+        setSearchStatus({
+          type: "warning",
+          text: "No Nostr events matched yet, so mock results are shown for now.",
+        });
+      } else {
+        setSearchStatus({
+          type: "success",
+          text: "Fetched fresh rankings from Nostr relays.",
+        });
+      }
     } catch (err) {
       console.error(err);
       setShops([]);
+      setSearchStatus({
+        type: "error",
+        text: err instanceof Error ? err.message : "Failed to fetch reputation data",
+      });
     } finally {
       setLoading(false);
     }
@@ -204,10 +254,26 @@ export default function Home() {
           </button>
         </form>
 
+        {searchStatus && (
+          <div
+            className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+              searchStatus.type === "success"
+                ? "border-green-200 bg-green-50 text-green-800 dark:border-green-900/60 dark:bg-green-950/30 dark:text-green-200"
+                : searchStatus.type === "warning"
+                  ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200"
+                  : "border-red-200 bg-red-50 text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200"
+            }`}
+            role="status"
+            aria-live="polite"
+          >
+            {searchStatus.text}
+          </div>
+        )}
+
         {useMock !== null && (
           <p className="mb-4 text-center text-sm text-gray-500 dark:text-gray-400">
             {useMock
-              ? "Using mock data (no Nostr events found for this tag)"
+              ? "Using mock data while Nostr results are missing or unavailable"
               : "Data from Nostr relays"}
           </p>
         )}
