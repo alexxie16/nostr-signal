@@ -29,7 +29,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), select location and category, adjust ranking weights if desired, then click Search. Results show `[mock]` prefix when using demo data.
+Open [http://localhost:3000](http://localhost:3000), select location and category, adjust ranking weights if desired, then click Search. Searches sync to the page URL, so you can bookmark or share a specific ranking view. Results show `[mock]` prefix when using demo data.
 
 ## Posting
 
