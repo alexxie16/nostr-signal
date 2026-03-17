@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ShopCard } from "@/components/ShopCard";
 import { PostForm } from "@/components/PostForm";
 import { NotesModal } from "@/components/NotesModal";
@@ -15,6 +15,18 @@ const DEFAULT_ENDORSEMENT_WEIGHT = 0.25;
 const DEFAULT_ZAP_WEIGHT = 0.2;
 const DEFAULT_TRUST_WEIGHT = 0.15;
 
+type SearchStatus =
+  | { type: "success"; text: string }
+  | { type: "warning"; text: string }
+  | { type: "error"; text: string };
+
+interface ReputationResponse {
+  shops?: ShopReputation[];
+  useMock?: boolean;
+  message?: string;
+  error?: string;
+}
+
 export default function Home() {
   const [location, setLocation] = useState("madeira");
   const [domain, setDomain] = useState("beer-shop");
@@ -26,12 +38,51 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [useMock, setUseMock] = useState<boolean | null>(null);
   const [selectedShop, setSelectedShop] = useState<ShopReputation | null>(null);
+  const [searchStatus, setSearchStatus] = useState<SearchStatus | null>(null);
+
+  const rawWeightSum = activityWeight + endorsementWeight + zapWeight + trustWeight;
+  const hasPositiveWeight = rawWeightSum > 0;
+
+  const normalizedWeights = useMemo(() => {
+    if (!hasPositiveWeight) {
+      return {
+        activity: 0,
+        endorsement: 0,
+        zap: 0,
+        trust: 0,
+      };
+    }
+
+    return {
+      activity: activityWeight / rawWeightSum,
+      endorsement: endorsementWeight / rawWeightSum,
+      zap: zapWeight / rawWeightSum,
+      trust: trustWeight / rawWeightSum,
+    };
+  }, [activityWeight, endorsementWeight, zapWeight, trustWeight, hasPositiveWeight, rawWeightSum]);
+
+  function resetWeights() {
+    setActivityWeight(DEFAULT_ACTIVITY_WEIGHT);
+    setEndorsementWeight(DEFAULT_ENDORSEMENT_WEIGHT);
+    setZapWeight(DEFAULT_ZAP_WEIGHT);
+    setTrustWeight(DEFAULT_TRUST_WEIGHT);
+  }
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
+
+    if (!hasPositiveWeight) {
+      setSearchStatus({
+        type: "error",
+        text: "At least one ranking weight must be greater than 0.",
+      });
+      return;
+    }
+
     setLoading(true);
     setShops(null);
     setUseMock(null);
+    setSearchStatus(null);
     try {
       const params = new URLSearchParams({
         location,
@@ -42,13 +93,49 @@ export default function Home() {
         trustWeight: String(trustWeight),
       });
       const res = await fetch(`/api/reputation?${params}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Request failed");
-      setShops(data.shops ?? []);
-      setUseMock(data.useMock ?? false);
+      const data: ReputationResponse = await res.json();
+
+      const nextShops = data.shops ?? [];
+      const nextUseMock = data.useMock ?? false;
+
+      setShops(nextShops);
+      setUseMock(nextUseMock);
+
+      if (!res.ok) {
+        if (nextShops.length > 0) {
+          setSearchStatus({
+            type: "warning",
+            text:
+              data.message ?? data.error ?? "Nostr relays failed, so mock results are shown instead.",
+          });
+          return;
+        }
+        throw new Error(data.error ?? data.message ?? "Request failed");
+      }
+
+      if (data.message) {
+        setSearchStatus({
+          type: nextUseMock ? "warning" : "success",
+          text: data.message,
+        });
+      } else if (nextUseMock) {
+        setSearchStatus({
+          type: "warning",
+          text: "No Nostr events matched yet, so mock results are shown for now.",
+        });
+      } else {
+        setSearchStatus({
+          type: "success",
+          text: "Fetched fresh rankings from Nostr relays.",
+        });
+      }
     } catch (err) {
       console.error(err);
       setShops([]);
+      setSearchStatus({
+        type: "error",
+        text: err instanceof Error ? err.message : "Failed to fetch reputation data",
+      });
     } finally {
       setLoading(false);
     }
@@ -110,104 +197,92 @@ export default function Home() {
             </div>
           </div>
           <div className="mt-4 space-y-3 rounded-md border border-gray-200 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-700/50">
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Ranking weights
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div>
-                <label
-                  htmlFor="activityWeight"
-                  className="mb-1 flex items-center text-xs text-gray-500 dark:text-gray-400"
-                >
-                  Activity
-                  <InfoButton scoreKey="activity" />
-                </label>
-                <input
-                  id="activityWeight"
-                  type="number"
-                  min={0}
-                  max={1}
-                  step={0.1}
-                  value={activityWeight}
-                  onChange={(e) => setActivityWeight(parseFloat(e.target.value) || 0)}
-                  className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="endorsementWeight"
-                  className="mb-1 flex items-center text-xs text-gray-500 dark:text-gray-400"
-                >
-                  Endorsement
-                  <InfoButton scoreKey="endorsement" />
-                </label>
-                <input
-                  id="endorsementWeight"
-                  type="number"
-                  min={0}
-                  max={1}
-                  step={0.1}
-                  value={endorsementWeight}
-                  onChange={(e) => setEndorsementWeight(parseFloat(e.target.value) || 0)}
-                  className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="zapWeight"
-                  className="mb-1 flex items-center text-xs text-gray-500 dark:text-gray-400"
-                >
-                  Zap
-                  <InfoButton scoreKey="zap" />
-                </label>
-                <input
-                  id="zapWeight"
-                  type="number"
-                  min={0}
-                  max={1}
-                  step={0.1}
-                  value={zapWeight}
-                  onChange={(e) => setZapWeight(parseFloat(e.target.value) || 0)}
-                  className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="trustWeight"
-                  className="mb-1 flex items-center text-xs text-gray-500 dark:text-gray-400"
-                >
-                  Trust
-                  <InfoButton scoreKey="trust" />
-                </label>
-                <input
-                  id="trustWeight"
-                  type="number"
-                  min={0}
-                  max={1}
-                  step={0.1}
-                  value={trustWeight}
-                  onChange={(e) => setTrustWeight(parseFloat(e.target.value) || 0)}
-                  className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                />
-              </div>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Ranking weights
+              </p>
+              <button
+                type="button"
+                onClick={resetWeights}
+                className="text-xs font-medium text-amber-600 hover:underline dark:text-amber-400"
+              >
+                Reset defaults
+              </button>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Weights are normalized to sum to 1
-            </p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <WeightInput
+                id="activityWeight"
+                label="Activity"
+                scoreKey="activity"
+                value={activityWeight}
+                normalizedValue={normalizedWeights.activity}
+                onChange={setActivityWeight}
+              />
+              <WeightInput
+                id="endorsementWeight"
+                label="Endorsement"
+                scoreKey="endorsement"
+                value={endorsementWeight}
+                normalizedValue={normalizedWeights.endorsement}
+                onChange={setEndorsementWeight}
+              />
+              <WeightInput
+                id="zapWeight"
+                label="Zap"
+                scoreKey="zap"
+                value={zapWeight}
+                normalizedValue={normalizedWeights.zap}
+                onChange={setZapWeight}
+              />
+              <WeightInput
+                id="trustWeight"
+                label="Trust"
+                scoreKey="trust"
+                value={trustWeight}
+                normalizedValue={normalizedWeights.trust}
+                onChange={setTrustWeight}
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Raw total: {rawWeightSum.toFixed(2)}. Search normalizes these values to 100%.
+              </p>
+              {!hasPositiveWeight && (
+                <p className="text-xs text-red-600 dark:text-red-400">
+                  Set at least one weight above 0 to run a search.
+                </p>
+              )}
+            </div>
           </div>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !hasPositiveWeight}
             className="mt-4 w-full rounded-md bg-amber-500 px-4 py-2 font-medium text-white transition hover:bg-amber-600 disabled:opacity-50"
           >
             {loading ? "Searching Nostr…" : "Search"}
           </button>
         </form>
 
+        {searchStatus && (
+          <div
+            className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+              searchStatus.type === "success"
+                ? "border-green-200 bg-green-50 text-green-800 dark:border-green-900/60 dark:bg-green-950/30 dark:text-green-200"
+                : searchStatus.type === "warning"
+                  ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200"
+                  : "border-red-200 bg-red-50 text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200"
+            }`}
+            role="status"
+            aria-live="polite"
+          >
+            {searchStatus.text}
+          </div>
+        )}
+
         {useMock !== null && (
           <p className="mb-4 text-center text-sm text-gray-500 dark:text-gray-400">
             {useMock
-              ? "Using mock data (no Nostr events found for this tag)"
+              ? "Using mock data while Nostr results are missing or unavailable"
               : "Data from Nostr relays"}
           </p>
         )}
@@ -237,5 +312,46 @@ export default function Home() {
         )}
       </div>
     </main>
+  );
+}
+
+function WeightInput({
+  id,
+  label,
+  scoreKey,
+  value,
+  normalizedValue,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  scoreKey: "activity" | "endorsement" | "zap" | "trust";
+  value: number;
+  normalizedValue: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div>
+      <label
+        htmlFor={id}
+        className="mb-1 flex items-center text-xs text-gray-500 dark:text-gray-400"
+      >
+        {label}
+        <InfoButton scoreKey={scoreKey} />
+      </label>
+      <input
+        id={id}
+        type="number"
+        min={0}
+        max={1}
+        step={0.1}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+        className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+      />
+      <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+        Normalized: {Math.round(normalizedValue * 100)}%
+      </p>
+    </div>
   );
 }
