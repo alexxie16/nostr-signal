@@ -45,9 +45,7 @@ export async function fetchNotes(
   const events = await pool.querySync(relays, filter);
   pool.close(relays);
 
-  const filtered = events.filter((e) =>
-    hasRequiredTags(e.tags, location, domain)
-  );
+  const filtered = events.filter((e) => hasRequiredTags(e.tags, location, domain));
 
   return filtered.map((e) => ({
     id: e.id,
@@ -89,9 +87,7 @@ export async function fetchEventsByIds(ids: string[]): Promise<NostrEvent[]> {
 }
 
 /** Fetch kind 7 (reaction) events that reference the given event IDs */
-export async function fetchReactions(
-  eventIds: string[]
-): Promise<NostrEvent[]> {
+export async function fetchReactions(eventIds: string[]): Promise<NostrEvent[]> {
   if (eventIds.length === 0) return [];
 
   const pool = new SimplePool();
@@ -145,11 +141,7 @@ export async function fetchZaps(eventIds: string[]): Promise<NostrEvent[]> {
 }
 
 /** Extract shop slugs from a note's t tags (exclude location and domain) */
-export function extractShopSlugs(
-  note: NostrEvent,
-  location: string,
-  domain: string
-): string[] {
+export function extractShopSlugs(note: NostrEvent, location: string, domain: string): string[] {
   const normalizedLocation = location.toLowerCase().trim();
   const normalizedDomain = domain.toLowerCase().trim();
   const tTags = note.tags.filter((t) => t[0] === "t" && t[1]);
@@ -266,9 +258,7 @@ export function buildContactListMap(events: NostrEvent[]): Map<string, Set<strin
  * Fetch kind 3 (contact list) events for a list of pubkeys.
  * Returns a map of pubkey -> list of followed pubkeys.
  */
-export async function fetchContactLists(
-  pubkeys: string[]
-): Promise<Map<string, Set<string>>> {
+export async function fetchContactLists(pubkeys: string[]): Promise<Map<string, Set<string>>> {
   if (pubkeys.length === 0) return new Map();
 
   const uniquePubkeys = [...new Set(pubkeys)];
@@ -284,15 +274,17 @@ export async function fetchContactLists(
   const events = await pool.querySync(relays, filter);
   pool.close(relays);
 
-  return buildContactListMap(events.map((e) => ({
-    id: e.id,
-    kind: e.kind,
-    pubkey: e.pubkey,
-    content: e.content,
-    tags: e.tags,
-    created_at: e.created_at,
-    sig: e.sig,
-  })));
+  return buildContactListMap(
+    events.map((e) => ({
+      id: e.id,
+      kind: e.kind,
+      pubkey: e.pubkey,
+      content: e.content,
+      tags: e.tags,
+      created_at: e.created_at,
+      sig: e.sig,
+    })),
+  );
 }
 
 /**
@@ -303,11 +295,10 @@ export async function fetchContactLists(
  *   - 1.0 = user follows directly
  *   - 0.75 = user follows someone who follows this author
  *   - 0.5 = neutral (default)
- *   - 0.25 = less trusted (user's follows don't follow this author)
  */
 export async function calculateTrustScores(
   userPubkey: string,
-  authorPubkeys: string[]
+  authorPubkeys: string[],
 ): Promise<Map<string, number>> {
   if (!userPubkey || authorPubkeys.length === 0) {
     return new Map(authorPubkeys.map((pk) => [pk, 0.5]));
@@ -323,10 +314,8 @@ export async function calculateTrustScores(
 
   for (const author of uniqueAuthors) {
     if (userFollows.has(author)) {
-      // Direct follow: highest trust
       trustScores.set(author, 1.0);
     } else {
-      // Check if any followed user follows this author (distance 2)
       let foundIndirect = false;
       for (const followed of userFollows) {
         const followedList = contactLists.get(followed) ?? new Set();
