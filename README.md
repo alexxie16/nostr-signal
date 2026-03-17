@@ -29,7 +29,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), select location and category, adjust ranking weights if desired, then click Search. Results show `[mock]` prefix when using demo data.
+Open [http://localhost:3000](http://localhost:3000), select location and category, adjust ranking weights if desired, then click Search. Searches sync to the page URL, so you can bookmark or share a specific ranking view. Results show `[mock]` prefix when using demo data.
 
 ## Posting
 
@@ -61,7 +61,7 @@ Returns a ranked list of shops with reputation scores. Query params:
 | `endorsementWeight`| 0.3       | Weight for endorsement score |
 | `zapWeight`        | 0.2       | Weight for zap score         |
 
-Weights are normalized to sum to 1.
+Weights are normalized to sum to 1. The UI shows each weight's live normalized share, lets you reset defaults in one click, and prevents searches when all four weights are set to 0.
 
 ### Note API
 
