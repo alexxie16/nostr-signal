@@ -8,12 +8,14 @@ export const SCORE_EXPLANATIONS = {
   endorsement:
     "Count of positive reactions (likes, hearts, etc.) on those notes. Normalized 0–1.",
   zap: "Sum of Lightning zaps (sats) and zap count on those notes. Uses a log scale. Normalized 0–1.",
+  trust: "Average trust score of note authors based on Nostr web of trust. 1.0 = directly followed, 0.75 = followed by someone you follow, 0.5 = neutral. Helps surface recommendations from trusted sources.",
 } as const;
 
 const SCORE_TITLES: Record<keyof typeof SCORE_EXPLANATIONS, string> = {
   activity: "Activity Score",
   endorsement: "Endorsement Score",
   zap: "Zap Score",
+  trust: "Trust Score",
 };
 
 type ScoreKey = keyof typeof SCORE_EXPLANATIONS;

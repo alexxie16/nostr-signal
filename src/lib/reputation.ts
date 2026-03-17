@@ -29,21 +29,25 @@ function slugToDisplayName(slug: string): string {
 
 /**
  * Aggregate signals from Nostr events into per-shop counts.
+ * Optionally includes trust scores from note authors.
  */
 export function aggregateSignals(
   notes: NostrEvent[],
   reactions: NostrEvent[],
   zaps: NostrEvent[],
   location: string,
-  domain: string
+  domain: string,
+  authorTrustMap?: Map<string, number> // pubkey -> trust score (0-1)
 ): Map<string, ShopSignals> {
   const noteIdToSlugs = new Map<string, string[]>();
   const slugToNoteIds = new Map<string, string[]>();
+  const noteIdToAuthor = new Map<string, string>();
 
   for (const note of notes) {
     const slugs = extractShopSlugs(note, location, domain);
     if (slugs.length === 0) continue;
     noteIdToSlugs.set(note.id, slugs);
+    noteIdToAuthor.set(note.id, note.pubkey);
     for (const slug of slugs) {
       const ids = slugToNoteIds.get(slug) ?? [];
       ids.push(note.id);
@@ -90,6 +94,18 @@ export function aggregateSignals(
       }
     }
 
+    // Calculate average trust score of note authors
+    let trustScore = 0.5; // Default neutral trust
+    if (authorTrustMap && noteIds.length > 0) {
+      const authorTrustScores = noteIds
+        .map((id) => authorTrustMap.get(noteIdToAuthor.get(id) ?? "") ?? 0.5)
+        .filter((score) => score > 0);
+      if (authorTrustScores.length > 0) {
+        trustScore =
+          authorTrustScores.reduce((a, b) => a + b, 0) / authorTrustScores.length;
+      }
+    }
+
     signalsBySlug.set(slug, {
       slug,
       noteIds,
@@ -97,6 +113,7 @@ export function aggregateSignals(
       reactionCount,
       zapCount,
       zapSatsTotal,
+      trustScore,
     });
   }
 
@@ -107,23 +124,28 @@ export interface RankingWeights {
   activity: number;
   endorsement: number;
   zap: number;
+  trust: number;
 }
 
 const DEFAULT_WEIGHTS: RankingWeights = {
-  activity: 0.5,
-  endorsement: 0.3,
+  activity: 0.4,
+  endorsement: 0.25,
   zap: 0.2,
+  trust: 0.15,
 };
 
 /** Normalize weights to sum to 1; fall back to defaults if invalid */
 export function parseWeights(
   activity?: number | string,
   endorsement?: number | string,
-  zap?: number | string
+  zap?: number | string,
+  trust?: number | string
 ): RankingWeights {
   const a = typeof activity === "string" ? parseFloat(activity) : activity;
   const e = typeof endorsement === "string" ? parseFloat(endorsement) : endorsement;
   const z = typeof zap === "string" ? parseFloat(zap) : zap;
+  const t = typeof trust === "string" ? parseFloat(trust) : trust;
+
   if (
     typeof a === "number" &&
     !isNaN(a) &&
@@ -131,16 +153,20 @@ export function parseWeights(
     !isNaN(e) &&
     typeof z === "number" &&
     !isNaN(z) &&
+    typeof t === "number" &&
+    !isNaN(t) &&
     a >= 0 &&
     e >= 0 &&
-    z >= 0
+    z >= 0 &&
+    t >= 0
   ) {
-    const sum = a + e + z;
+    const sum = a + e + z + t;
     if (sum > 0) {
       return {
         activity: a / sum,
         endorsement: e / sum,
         zap: z / sum,
+        trust: t / sum,
       };
     }
   }
@@ -149,7 +175,7 @@ export function parseWeights(
 
 /**
  * Compute reputation scores with normalization and weighted formula.
- * Formula: activityWeight * activity + endorsementWeight * endorsement + zapWeight * zap
+ * Formula: activityWeight * activity + endorsementWeight * endorsement + zapWeight * zap + trustWeight * trust
  */
 export function computeReputation(
   signalsMap: Map<string, ShopSignals>,
@@ -171,11 +197,13 @@ export function computeReputation(
     const zapValue = Math.log1p(s.zapSatsTotal) + 0.5 * s.zapCount;
     const maxZapValue = Math.log1p(maxZapSats) + 0.5 * maxZaps;
     const zapScore = normalizeMinMax(zapValue, maxZapValue);
+    const trustScore = s.trustScore ?? 0.5;
 
     const totalScore =
       weights.activity * activityScore +
       weights.endorsement * endorsementScore +
-      weights.zap * zapScore;
+      weights.zap * zapScore +
+      weights.trust * trustScore;
 
     results.push({
       slug: s.slug,
@@ -183,6 +211,7 @@ export function computeReputation(
       activityScore,
       endorsementScore,
       zapScore,
+      trustScore,
       totalScore,
       raw: s,
     });

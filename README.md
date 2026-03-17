@@ -55,13 +55,13 @@ Returns a ranked list of shops with reputation scores. Query params:
 
 | Param              | Default   | Description                  |
 |--------------------|-----------|------------------------------|
-| `location`         | madeira   | Location tag filter          |
-| `domain`           | beer-shop | Category tag filter          |
+| `location`         | madeira   | Location tag filter (e.g. madeira, lisboa)          |
+| `domain`           | beer-shop | Category tag filter (e.g. beer-shop, restaurant)          |
 | `activityWeight`   | 0.5       | Weight for activity score    |
 | `endorsementWeight`| 0.3       | Weight for endorsement score |
 | `zapWeight`        | 0.2       | Weight for zap score         |
 
-Weights are normalized to sum to 1.
+Weights are normalized to sum to 1. The UI shows each weight's live normalized share, lets you reset defaults in one click, and prevents searches when all four weights are set to 0.
 
 ### Note API
 
