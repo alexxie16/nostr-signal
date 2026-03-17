@@ -37,6 +37,8 @@ Use the "Post a recommendation" form to publish kind 1 notes with location, cate
 
 Posting is done **client-side** via NIP-07: the extension signs the event, then the client publishes directly to relays. There is no server-side POST API.
 
+The post form accepts a normal shop name and automatically converts it into a safe slug tag before publishing. For example, `Cervejaria João` becomes `cervejaria-joao`.
+
 ## Environment
 
 Copy `.env.example` to `.env.local` and adjust:
