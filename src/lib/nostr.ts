@@ -157,15 +157,53 @@ export function extractShopSlugs(
   return [...new Set(slugs)];
 }
 
-/** Parse zap amount in millisatoshis from kind 9735 content (JSON with amount) */
-export function parseZapAmount(zapEvent: NostrEvent): number {
+function parseNumericValue(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return 0;
+}
+
+function parseZapAmountFromJson(raw: string): number {
   try {
-    const parsed = JSON.parse(zapEvent.content);
-    const amount = parsed?.amount ?? parsed?.msatoshi ?? 0;
-    return typeof amount === "number" ? amount : 0;
+    const parsed = JSON.parse(raw);
+    return (
+      parseNumericValue(parsed?.amount) ||
+      parseNumericValue(parsed?.msatoshi) ||
+      parseNumericValue(parsed?.msats) ||
+      0
+    );
   } catch {
     return 0;
   }
+}
+
+/**
+ * Parse zap amount in millisatoshis from a kind 9735 receipt.
+ * Prefers receipt tags commonly used in NIP-57, then falls back to JSON payloads.
+ */
+export function parseZapAmount(zapEvent: NostrEvent): number {
+  const amountTag = zapEvent.tags.find((tag) => tag[0] === "amount" && tag[1]);
+  const amountFromTag = parseNumericValue(amountTag?.[1]);
+  if (amountFromTag > 0) {
+    return amountFromTag;
+  }
+
+  const descriptionTag = zapEvent.tags.find((tag) => tag[0] === "description" && tag[1]);
+  const amountFromDescription = descriptionTag ? parseZapAmountFromJson(descriptionTag[1]) : 0;
+  if (amountFromDescription > 0) {
+    return amountFromDescription;
+  }
+
+  return parseZapAmountFromJson(zapEvent.content);
 }
 
 /**

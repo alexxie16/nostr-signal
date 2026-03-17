@@ -22,6 +22,8 @@ Entities (e.g. beer shops) are identified by Nostr `t` tags on kind 1 notes. **B
 - `t:beer-shop` — category  
 - `t:cervejaria-joao` — unique shop identifier (slug)
 
+Zap totals are read from kind `9735` zap receipts. The parser now prefers the receipt `amount` tag, then the embedded `description` JSON, and finally falls back to legacy JSON in the event content. That makes live rankings more reliable across common NIP-57 receipt shapes.
+
 ## Quick Start
 
 ```bash
@@ -29,7 +31,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), select location and category, adjust ranking weights if desired, then click Search. Results show `[mock]` prefix when using demo data.
+Open [http://localhost:3000](http://localhost:3000), select location and category, adjust ranking weights if desired, then click Search. Searches sync to the page URL, so you can bookmark or share a specific ranking view. Results show `[mock]` prefix when using demo data.
 
 ## Posting
 
@@ -53,13 +55,13 @@ GET /api/reputation?location=madeira&domain=beer-shop&activityWeight=0.5&endorse
 
 Returns a ranked list of shops with reputation scores. Query params:
 
-| Param              | Default   | Description                  |
-|--------------------|-----------|------------------------------|
-| `location`         | madeira   | Location tag filter (e.g. madeira, lisboa)          |
-| `domain`           | beer-shop | Category tag filter (e.g. beer-shop, restaurant)          |
-| `activityWeight`   | 0.5       | Weight for activity score    |
-| `endorsementWeight`| 0.3       | Weight for endorsement score |
-| `zapWeight`        | 0.2       | Weight for zap score         |
+| Param               | Default   | Description                  |
+|---------------------|-----------|------------------------------|
+| `location`          | madeira   | Location tag filter          |
+| `domain`            | beer-shop | Category tag filter          |
+| `activityWeight`    | 0.5       | Weight for activity score    |
+| `endorsementWeight` | 0.3       | Weight for endorsement score |
+| `zapWeight`         | 0.2       | Weight for zap score         |
 
 Weights are normalized to sum to 1.
 
@@ -76,3 +78,10 @@ Returns kind 1 note events by ID. Used to fetch note content when viewing notes 
 | `ids` | Yes      | Comma-separated Nostr event IDs (hex) |
 
 Response: `{ notes: NostrEvent[] }`
+
+## Validation
+
+```bash
+npm run test
+npm run build
+```
