@@ -8,6 +8,7 @@ export const MOCK_REPUTATIONS: ShopReputation[] = [
     activityScore: 0.9,
     endorsementScore: 0.85,
     zapScore: 0.7,
+    trustScore: 0.85,
     totalScore: 0.855,
     raw: {
       slug: "cervejaria-joao",
@@ -16,6 +17,7 @@ export const MOCK_REPUTATIONS: ShopReputation[] = [
       reactionCount: 34,
       zapCount: 8,
       zapSatsTotal: 5000,
+      trustScore: 0.85,
     },
   },
   {
@@ -24,6 +26,7 @@ export const MOCK_REPUTATIONS: ShopReputation[] = [
     activityScore: 0.7,
     endorsementScore: 0.9,
     zapScore: 0.85,
+    trustScore: 0.9,
     totalScore: 0.785,
     raw: {
       slug: "bar-do-mar",
@@ -32,6 +35,7 @@ export const MOCK_REPUTATIONS: ShopReputation[] = [
       reactionCount: 42,
       zapCount: 12,
       zapSatsTotal: 12000,
+      trustScore: 0.9,
     },
   },
   {
@@ -40,6 +44,7 @@ export const MOCK_REPUTATIONS: ShopReputation[] = [
     activityScore: 0.6,
     endorsementScore: 0.65,
     zapScore: 0.5,
+    trustScore: 0.6,
     totalScore: 0.595,
     raw: {
       slug: "tasca-ribeira",
@@ -48,6 +53,7 @@ export const MOCK_REPUTATIONS: ShopReputation[] = [
       reactionCount: 18,
       zapCount: 3,
       zapSatsTotal: 2000,
+      trustScore: 0.6,
     },
   },
 ];

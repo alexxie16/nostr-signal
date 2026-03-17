@@ -43,6 +43,7 @@ export function ShopCard({ shop, rank, isMocked, onViewNotes }: ShopCardProps) {
             <ScoreBar label="Activity" value={shop.activityScore} scoreKey="activity" />
             <ScoreBar label="Endorsement" value={shop.endorsementScore} scoreKey="endorsement" />
             <ScoreBar label="Zap" value={shop.zapScore} scoreKey="zap" />
+            <ScoreBar label="Trust" value={shop.trustScore} scoreKey="trust" />
           </div>
         </div>
         <div className="shrink-0 text-right">
@@ -62,7 +63,7 @@ function ScoreBar({
 }: {
   label: string;
   value: number;
-  scoreKey: "activity" | "endorsement" | "zap";
+  scoreKey: "activity" | "endorsement" | "zap" | "trust";
 }) {
   const pct = Math.round(value * 100);
   return (
