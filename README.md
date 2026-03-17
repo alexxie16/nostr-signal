@@ -5,14 +5,15 @@ Discover trusted local spots via Nostr reputation signals. Example: finding good
 ## Reputation Formula
 
 ```
-reputation = activityWeight × activity_score + endorsementWeight × endorsement_score + zapWeight × zap_score
+reputation = activityWeight × activity_score + endorsementWeight × endorsement_score + zapWeight × zap_score + trustWeight × trust_score
 ```
 
-Defaults: activity 0.5, endorsement 0.3, zap 0.2. Weights can be customized in the UI and are normalized to sum to 1.
+Defaults: activity 0.4, endorsement 0.25, zap 0.2, trust 0.15. Weights can be customized in the UI and are normalized to sum to 1.
 
 - **activity_score**: Count of kind 1 notes mentioning the entity (by tag)
 - **endorsement_score**: Count of kind 7 (reaction) events on those notes
 - **zap_score**: Sum of Lightning zaps (kind 9735) on those notes
+- **trust_score**: Average trust score of note authors based on your Nostr follow graph
 
 ## Data Model
 
@@ -24,6 +25,12 @@ Entities (e.g. beer shops) are identified by Nostr `t` tags on kind 1 notes. **B
 
 Zap totals are read from kind `9735` zap receipts. The parser now prefers the receipt `amount` tag, then the embedded `description` JSON, and finally falls back to legacy JSON in the event content. That makes live rankings more reliable across common NIP-57 receipt shapes.
 
+Trust personalization is optional. If you provide your own pubkey in the search form, the app accepts either a 64-character hex pubkey or an `npub`, normalizes it, and weights note authors by your web of trust:
+
+- `1.0` — you follow the author directly
+- `0.75` — someone you follow follows the author
+- `0.5` — neutral / unknown
+
 ## Quick Start
 
 ```bash
@@ -31,7 +38,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), select location and category, adjust ranking weights if desired, then click Search. Searches sync to the page URL, so you can bookmark or share a specific ranking view. Results show `[mock]` prefix when using demo data.
+Open [http://localhost:3000](http://localhost:3000), select location and category, optionally paste your own Nostr pubkey to personalize trust scoring, adjust ranking weights, then click Search. Searches sync to the page URL, so you can bookmark or share a specific ranking view. Results show `[mock]` prefix when using demo data.
 
 ## Posting
 
@@ -50,18 +57,20 @@ Copy `.env.example` to `.env.local` and adjust:
 ## API
 
 ```
-GET /api/reputation?location=madeira&domain=beer-shop&activityWeight=0.5&endorsementWeight=0.3&zapWeight=0.2
+GET /api/reputation?location=madeira&domain=beer-shop&activityWeight=0.4&endorsementWeight=0.25&zapWeight=0.2&trustWeight=0.15&userPubkey=npub1...
 ```
 
 Returns a ranked list of shops with reputation scores. Query params:
 
-| Param               | Default   | Description                  |
-|---------------------|-----------|------------------------------|
-| `location`          | madeira   | Location tag filter          |
-| `domain`            | beer-shop | Category tag filter          |
-| `activityWeight`    | 0.5       | Weight for activity score    |
-| `endorsementWeight` | 0.3       | Weight for endorsement score |
-| `zapWeight`         | 0.2       | Weight for zap score         |
+| Param               | Default   | Description                                          |
+|---------------------|-----------|------------------------------------------------------|
+| `location`          | madeira   | Location tag filter                                  |
+| `domain`            | beer-shop | Category tag filter                                  |
+| `activityWeight`    | 0.4       | Weight for activity score                            |
+| `endorsementWeight` | 0.25      | Weight for endorsement score                         |
+| `zapWeight`         | 0.2       | Weight for zap score                                 |
+| `trustWeight`       | 0.15      | Weight for trust score                               |
+| `userPubkey`        | —         | Optional hex pubkey or `npub` for personalized trust |
 
 Weights are normalized to sum to 1. The UI shows each weight's live normalized share, lets you reset defaults in one click, and prevents searches when all four weights are set to 0.
 
@@ -85,3 +94,5 @@ Response: `{ notes: NostrEvent[] }`
 npm run test
 npm run build
 ```
+
+The repository now includes focused unit coverage for the ranking pipeline in `src/lib/reputation.test.ts`, covering weight normalization, signal aggregation, and ordering.

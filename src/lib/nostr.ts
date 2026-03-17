@@ -1,5 +1,5 @@
-import { SimplePool } from "nostr-tools";
-import type { NostrEvent } from "./types";
+import { SimplePool, nip19 } from "nostr-tools";
+import type { NostrEvent } from "./types.ts";
 
 const DEFAULT_RELAYS = [
   "wss://relay.damus.io",
@@ -45,9 +45,7 @@ export async function fetchNotes(
   const events = await pool.querySync(relays, filter);
   pool.close(relays);
 
-  const filtered = events.filter((e) =>
-    hasRequiredTags(e.tags, location, domain)
-  );
+  const filtered = events.filter((e) => hasRequiredTags(e.tags, location, domain));
 
   return filtered.map((e) => ({
     id: e.id,
@@ -89,9 +87,7 @@ export async function fetchEventsByIds(ids: string[]): Promise<NostrEvent[]> {
 }
 
 /** Fetch kind 7 (reaction) events that reference the given event IDs */
-export async function fetchReactions(
-  eventIds: string[]
-): Promise<NostrEvent[]> {
+export async function fetchReactions(eventIds: string[]): Promise<NostrEvent[]> {
   if (eventIds.length === 0) return [];
 
   const pool = new SimplePool();
@@ -145,15 +141,13 @@ export async function fetchZaps(eventIds: string[]): Promise<NostrEvent[]> {
 }
 
 /** Extract shop slugs from a note's t tags (exclude location and domain) */
-export function extractShopSlugs(
-  note: NostrEvent,
-  location: string,
-  domain: string
-): string[] {
+export function extractShopSlugs(note: NostrEvent, location: string, domain: string): string[] {
+  const normalizedLocation = location.toLowerCase().trim();
+  const normalizedDomain = domain.toLowerCase().trim();
   const tTags = note.tags.filter((t) => t[0] === "t" && t[1]);
   const slugs = tTags
     .map((t) => t[1].toLowerCase().trim())
-    .filter((s) => s !== location && s !== domain);
+    .filter((s) => s !== normalizedLocation && s !== normalizedDomain);
   return [...new Set(slugs)];
 }
 
@@ -206,39 +200,91 @@ export function parseZapAmount(zapEvent: NostrEvent): number {
   return parseZapAmountFromJson(zapEvent.content);
 }
 
+function isHexPubkey(value: string): boolean {
+  return /^[a-f0-9]{64}$/i.test(value);
+}
+
 /**
- * Fetch kind 3 (contact list) events for a list of pubkeys.
- * Returns a map of pubkey -> list of followed pubkeys.
+ * Normalize a user pubkey from hex or npub format.
+ * Returns a lowercase hex pubkey, or null when the value is invalid.
  */
-export async function fetchContactLists(
-  pubkeys: string[]
-): Promise<Map<string, Set<string>>> {
-  if (pubkeys.length === 0) return new Map();
+export function normalizeUserPubkey(value?: string | null): string | null {
+  const input = value?.trim();
+  if (!input) return null;
 
-  const pool = new SimplePool();
-  const relays = getRelays();
+  if (isHexPubkey(input)) {
+    return input.toLowerCase();
+  }
 
-  const filter = {
-    kinds: [3],
-    authors: pubkeys,
-    limit: pubkeys.length,
-  };
+  if (input.toLowerCase().startsWith("npub1")) {
+    try {
+      const decoded = nip19.decode(input);
+      if (decoded.type === "npub" && typeof decoded.data === "string" && isHexPubkey(decoded.data)) {
+        return decoded.data.toLowerCase();
+      }
+    } catch {
+      return null;
+    }
+  }
 
-  const events = await pool.querySync(relays, filter);
-  pool.close(relays);
+  return null;
+}
+
+export function buildContactListMap(events: NostrEvent[]): Map<string, Set<string>> {
+  const latestEvents = new Map<string, NostrEvent>();
+
+  for (const event of events) {
+    const current = latestEvents.get(event.pubkey);
+    if (!current || event.created_at > current.created_at) {
+      latestEvents.set(event.pubkey, event);
+    }
+  }
 
   const contactLists = new Map<string, Set<string>>();
-  for (const event of events) {
+  for (const [pubkey, event] of latestEvents) {
     const followed = new Set<string>();
     for (const tag of event.tags) {
       if (tag[0] === "p" && tag[1]) {
         followed.add(tag[1]);
       }
     }
-    contactLists.set(event.pubkey, followed);
+    contactLists.set(pubkey, followed);
   }
 
   return contactLists;
+}
+
+/**
+ * Fetch kind 3 (contact list) events for a list of pubkeys.
+ * Returns a map of pubkey -> list of followed pubkeys.
+ */
+export async function fetchContactLists(pubkeys: string[]): Promise<Map<string, Set<string>>> {
+  if (pubkeys.length === 0) return new Map();
+
+  const uniquePubkeys = [...new Set(pubkeys)];
+  const pool = new SimplePool();
+  const relays = getRelays();
+
+  const filter = {
+    kinds: [3],
+    authors: uniquePubkeys,
+    limit: Math.max(uniquePubkeys.length * 5, 50),
+  };
+
+  const events = await pool.querySync(relays, filter);
+  pool.close(relays);
+
+  return buildContactListMap(
+    events.map((e) => ({
+      id: e.id,
+      kind: e.kind,
+      pubkey: e.pubkey,
+      content: e.content,
+      tags: e.tags,
+      created_at: e.created_at,
+      sig: e.sig,
+    })),
+  );
 }
 
 /**
@@ -249,11 +295,10 @@ export async function fetchContactLists(
  *   - 1.0 = user follows directly
  *   - 0.75 = user follows someone who follows this author
  *   - 0.5 = neutral (default)
- *   - 0.25 = less trusted (user's follows don't follow this author)
  */
 export async function calculateTrustScores(
   userPubkey: string,
-  authorPubkeys: string[]
+  authorPubkeys: string[],
 ): Promise<Map<string, number>> {
   if (!userPubkey || authorPubkeys.length === 0) {
     return new Map(authorPubkeys.map((pk) => [pk, 0.5]));
@@ -269,10 +314,8 @@ export async function calculateTrustScores(
 
   for (const author of uniqueAuthors) {
     if (userFollows.has(author)) {
-      // Direct follow: highest trust
       trustScores.set(author, 1.0);
     } else {
-      // Check if any followed user follows this author (distance 2)
       let foundIndirect = false;
       for (const followed of userFollows) {
         const followedList = contactLists.get(followed) ?? new Set();
