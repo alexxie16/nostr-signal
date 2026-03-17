@@ -5,6 +5,7 @@ import { ShopCard } from "@/components/ShopCard";
 import { PostForm } from "@/components/PostForm";
 import { NotesModal } from "@/components/NotesModal";
 import { InfoButton } from "@/components/ScoreInfo";
+import { normalizeUserPubkey } from "@/lib/nostr";
 import type { ShopReputation } from "@/lib/types";
 
 const LOCATIONS = ["madeira", "lisboa", "porto"];
@@ -22,6 +23,8 @@ export default function Home() {
   const [endorsementWeight, setEndorsementWeight] = useState(DEFAULT_ENDORSEMENT_WEIGHT);
   const [zapWeight, setZapWeight] = useState(DEFAULT_ZAP_WEIGHT);
   const [trustWeight, setTrustWeight] = useState(DEFAULT_TRUST_WEIGHT);
+  const [userPubkey, setUserPubkey] = useState("");
+  const [pubkeyError, setPubkeyError] = useState<string | null>(null);
   const [shops, setShops] = useState<ShopReputation[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [useMock, setUseMock] = useState<boolean | null>(null);
@@ -29,6 +32,14 @@ export default function Home() {
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
+
+    const trimmedPubkey = userPubkey.trim();
+    if (trimmedPubkey && !normalizeUserPubkey(trimmedPubkey)) {
+      setPubkeyError("Enter a valid npub or 64-character hex pubkey to personalize trust scores.");
+      return;
+    }
+
+    setPubkeyError(null);
     setLoading(true);
     setShops(null);
     setUseMock(null);
@@ -41,6 +52,11 @@ export default function Home() {
         zapWeight: String(zapWeight),
         trustWeight: String(trustWeight),
       });
+
+      if (trimmedPubkey) {
+        params.set("userPubkey", trimmedPubkey);
+      }
+
       const res = await fetch(`/api/reputation?${params}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Request failed");
@@ -109,6 +125,36 @@ export default function Home() {
               </select>
             </div>
           </div>
+
+          <div className="mt-4">
+            <label
+              htmlFor="userPubkey"
+              className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Your Nostr pubkey <span className="text-gray-500 dark:text-gray-400">(optional)</span>
+            </label>
+            <input
+              id="userPubkey"
+              type="text"
+              value={userPubkey}
+              onChange={(e) => {
+                setUserPubkey(e.target.value);
+                if (pubkeyError) setPubkeyError(null);
+              }}
+              placeholder="npub1… or 64-character hex pubkey"
+              spellCheck={false}
+              autoCapitalize="none"
+              autoCorrect="off"
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Add your pubkey to personalize trust scores from your Nostr follow graph.
+            </p>
+            {pubkeyError && (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">{pubkeyError}</p>
+            )}
+          </div>
+
           <div className="mt-4 space-y-3 rounded-md border border-gray-200 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-700/50">
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Ranking weights

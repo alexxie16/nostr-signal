@@ -1,4 +1,4 @@
-import { SimplePool } from "nostr-tools";
+import { SimplePool, nip19 } from "nostr-tools";
 import type { NostrEvent } from "./types";
 
 const DEFAULT_RELAYS = [
@@ -150,22 +150,92 @@ export function extractShopSlugs(
   location: string,
   domain: string
 ): string[] {
+  const normalizedLocation = location.toLowerCase().trim();
+  const normalizedDomain = domain.toLowerCase().trim();
   const tTags = note.tags.filter((t) => t[0] === "t" && t[1]);
   const slugs = tTags
     .map((t) => t[1].toLowerCase().trim())
-    .filter((s) => s !== location && s !== domain);
+    .filter((s) => s !== normalizedLocation && s !== normalizedDomain);
   return [...new Set(slugs)];
 }
 
-/** Parse zap amount in millisatoshis from kind 9735 content (JSON with amount) */
-export function parseZapAmount(zapEvent: NostrEvent): number {
+function parseNumericValue(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return 0;
+}
+
+function parseZapAmountFromJson(raw: string): number {
   try {
-    const parsed = JSON.parse(zapEvent.content);
-    const amount = parsed?.amount ?? parsed?.msatoshi ?? 0;
-    return typeof amount === "number" ? amount : 0;
+    const parsed = JSON.parse(raw);
+    return (
+      parseNumericValue(parsed?.amount) ||
+      parseNumericValue(parsed?.msatoshi) ||
+      parseNumericValue(parsed?.msats) ||
+      0
+    );
   } catch {
     return 0;
   }
+}
+
+/**
+ * Parse zap amount in millisatoshis from a kind 9735 receipt.
+ * Prefers receipt tags commonly used in NIP-57, then falls back to JSON payloads.
+ */
+export function parseZapAmount(zapEvent: NostrEvent): number {
+  const amountTag = zapEvent.tags.find((tag) => tag[0] === "amount" && tag[1]);
+  const amountFromTag = parseNumericValue(amountTag?.[1]);
+  if (amountFromTag > 0) {
+    return amountFromTag;
+  }
+
+  const descriptionTag = zapEvent.tags.find((tag) => tag[0] === "description" && tag[1]);
+  const amountFromDescription = descriptionTag ? parseZapAmountFromJson(descriptionTag[1]) : 0;
+  if (amountFromDescription > 0) {
+    return amountFromDescription;
+  }
+
+  return parseZapAmountFromJson(zapEvent.content);
+}
+
+function isHexPubkey(value: string): boolean {
+  return /^[a-f0-9]{64}$/i.test(value);
+}
+
+/**
+ * Normalize a user pubkey from hex or npub format.
+ * Returns a lowercase hex pubkey, or null when the value is invalid.
+ */
+export function normalizeUserPubkey(value?: string | null): string | null {
+  const input = value?.trim();
+  if (!input) return null;
+
+  if (isHexPubkey(input)) {
+    return input.toLowerCase();
+  }
+
+  if (input.toLowerCase().startsWith("npub1")) {
+    try {
+      const decoded = nip19.decode(input);
+      if (decoded.type === "npub" && typeof decoded.data === "string" && isHexPubkey(decoded.data)) {
+        return decoded.data.toLowerCase();
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
 }
 
 /**
