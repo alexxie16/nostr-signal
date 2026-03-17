@@ -1,9 +1,9 @@
-import type { NostrEvent } from "./types";
+import type { NostrEvent } from "./types.ts";
 import {
   extractShopSlugs,
   parseZapAmount,
-} from "./nostr";
-import type { ShopReputation, ShopSignals } from "./types";
+} from "./nostr.ts";
+import type { ShopReputation, ShopSignals } from "./types.ts";
 
 /** Positive reaction content values (NIP-25) */
 const POSITIVE_REACTIONS = new Set(["+", "❤", "❤️", "👍", "🤙", "⭐", "🔥"]);

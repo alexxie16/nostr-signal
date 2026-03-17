@@ -1,5 +1,5 @@
-import { SimplePool } from "nostr-tools";
-import type { NostrEvent } from "./types";
+import { SimplePool, nip19 } from "nostr-tools";
+import type { NostrEvent } from "./types.ts";
 
 const DEFAULT_RELAYS = [
   "wss://relay.damus.io",
@@ -150,22 +150,116 @@ export function extractShopSlugs(
   location: string,
   domain: string
 ): string[] {
+  const normalizedLocation = location.toLowerCase().trim();
+  const normalizedDomain = domain.toLowerCase().trim();
   const tTags = note.tags.filter((t) => t[0] === "t" && t[1]);
   const slugs = tTags
     .map((t) => t[1].toLowerCase().trim())
-    .filter((s) => s !== location && s !== domain);
+    .filter((s) => s !== normalizedLocation && s !== normalizedDomain);
   return [...new Set(slugs)];
 }
 
-/** Parse zap amount in millisatoshis from kind 9735 content (JSON with amount) */
-export function parseZapAmount(zapEvent: NostrEvent): number {
+function parseNumericValue(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return 0;
+}
+
+function parseZapAmountFromJson(raw: string): number {
   try {
-    const parsed = JSON.parse(zapEvent.content);
-    const amount = parsed?.amount ?? parsed?.msatoshi ?? 0;
-    return typeof amount === "number" ? amount : 0;
+    const parsed = JSON.parse(raw);
+    return (
+      parseNumericValue(parsed?.amount) ||
+      parseNumericValue(parsed?.msatoshi) ||
+      parseNumericValue(parsed?.msats) ||
+      0
+    );
   } catch {
     return 0;
   }
+}
+
+/**
+ * Parse zap amount in millisatoshis from a kind 9735 receipt.
+ * Prefers receipt tags commonly used in NIP-57, then falls back to JSON payloads.
+ */
+export function parseZapAmount(zapEvent: NostrEvent): number {
+  const amountTag = zapEvent.tags.find((tag) => tag[0] === "amount" && tag[1]);
+  const amountFromTag = parseNumericValue(amountTag?.[1]);
+  if (amountFromTag > 0) {
+    return amountFromTag;
+  }
+
+  const descriptionTag = zapEvent.tags.find((tag) => tag[0] === "description" && tag[1]);
+  const amountFromDescription = descriptionTag ? parseZapAmountFromJson(descriptionTag[1]) : 0;
+  if (amountFromDescription > 0) {
+    return amountFromDescription;
+  }
+
+  return parseZapAmountFromJson(zapEvent.content);
+}
+
+function isHexPubkey(value: string): boolean {
+  return /^[a-f0-9]{64}$/i.test(value);
+}
+
+/**
+ * Normalize a user pubkey from hex or npub format.
+ * Returns a lowercase hex pubkey, or null when the value is invalid.
+ */
+export function normalizeUserPubkey(value?: string | null): string | null {
+  const input = value?.trim();
+  if (!input) return null;
+
+  if (isHexPubkey(input)) {
+    return input.toLowerCase();
+  }
+
+  if (input.toLowerCase().startsWith("npub1")) {
+    try {
+      const decoded = nip19.decode(input);
+      if (decoded.type === "npub" && typeof decoded.data === "string" && isHexPubkey(decoded.data)) {
+        return decoded.data.toLowerCase();
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+export function buildContactListMap(events: NostrEvent[]): Map<string, Set<string>> {
+  const latestEvents = new Map<string, NostrEvent>();
+
+  for (const event of events) {
+    const current = latestEvents.get(event.pubkey);
+    if (!current || event.created_at > current.created_at) {
+      latestEvents.set(event.pubkey, event);
+    }
+  }
+
+  const contactLists = new Map<string, Set<string>>();
+  for (const [pubkey, event] of latestEvents) {
+    const followed = new Set<string>();
+    for (const tag of event.tags) {
+      if (tag[0] === "p" && tag[1]) {
+        followed.add(tag[1]);
+      }
+    }
+    contactLists.set(pubkey, followed);
+  }
+
+  return contactLists;
 }
 
 /**
@@ -177,30 +271,28 @@ export async function fetchContactLists(
 ): Promise<Map<string, Set<string>>> {
   if (pubkeys.length === 0) return new Map();
 
+  const uniquePubkeys = [...new Set(pubkeys)];
   const pool = new SimplePool();
   const relays = getRelays();
 
   const filter = {
     kinds: [3],
-    authors: pubkeys,
-    limit: pubkeys.length,
+    authors: uniquePubkeys,
+    limit: Math.max(uniquePubkeys.length * 5, 50),
   };
 
   const events = await pool.querySync(relays, filter);
   pool.close(relays);
 
-  const contactLists = new Map<string, Set<string>>();
-  for (const event of events) {
-    const followed = new Set<string>();
-    for (const tag of event.tags) {
-      if (tag[0] === "p" && tag[1]) {
-        followed.add(tag[1]);
-      }
-    }
-    contactLists.set(event.pubkey, followed);
-  }
-
-  return contactLists;
+  return buildContactListMap(events.map((e) => ({
+    id: e.id,
+    kind: e.kind,
+    pubkey: e.pubkey,
+    content: e.content,
+    tags: e.tags,
+    created_at: e.created_at,
+    sig: e.sig,
+  })));
 }
 
 /**
