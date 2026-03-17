@@ -66,10 +66,7 @@ test("normalizeUserPubkey accepts lowercase hex pubkeys", () => {
 
 test("normalizeUserPubkey normalizes npub values to hex", () => {
   const npub = "npub1lllllllllllllllllllllllllllllllllllllllllllllllllllsq7lrjw";
-  assert.equal(
-    normalizeUserPubkey(npub),
-    "f".repeat(64)
-  );
+  assert.equal(normalizeUserPubkey(npub), "f".repeat(64));
 });
 
 test("normalizeUserPubkey rejects invalid values", () => {

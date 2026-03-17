@@ -301,10 +301,8 @@ export async function calculateTrustScores(
 
   for (const author of uniqueAuthors) {
     if (userFollows.has(author)) {
-      // Direct follow: highest trust
       trustScores.set(author, 1.0);
     } else {
-      // Check if any followed user follows this author (distance 2)
       let foundIndirect = false;
       for (const followed of userFollows) {
         const followedList = contactLists.get(followed) ?? new Set();
