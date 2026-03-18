@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { nip19 } from "nostr-tools";
 
 import { normalizeUserPubkey, parseZapAmount } from "./nostr.ts";
 import type { NostrEvent } from "./types.ts";
@@ -69,7 +70,23 @@ test("normalizeUserPubkey normalizes npub values to hex", () => {
   assert.equal(normalizeUserPubkey(npub), "f".repeat(64));
 });
 
+test("normalizeUserPubkey accepts nostr: npub URIs", () => {
+  const uri = "nostr:npub1lllllllllllllllllllllllllllllllllllllllllllllllllllsq7lrjw";
+  assert.equal(normalizeUserPubkey(uri), "f".repeat(64));
+});
+
+test("normalizeUserPubkey extracts pubkeys from nprofile values", () => {
+  const nprofile = nip19.nprofileEncode({ pubkey: "f".repeat(64), relays: ["wss://relay.example.com"] });
+  assert.equal(normalizeUserPubkey(nprofile), "f".repeat(64));
+});
+
+test("normalizeUserPubkey accepts nostr: nprofile URIs", () => {
+  const nprofile = nip19.nprofileEncode({ pubkey: "f".repeat(64) });
+  assert.equal(normalizeUserPubkey(`nostr:${nprofile}`), "f".repeat(64));
+});
+
 test("normalizeUserPubkey rejects invalid values", () => {
   assert.equal(normalizeUserPubkey("hello world"), null);
   assert.equal(normalizeUserPubkey("npub1invalid"), null);
+  assert.equal(normalizeUserPubkey("nostr:note1invalid"), null);
 });
