@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
   if (rawUserPubkey && !userPubkey) {
     return NextResponse.json(
       {
-        error: "Invalid userPubkey. Use a 64-character hex pubkey or an npub.",
+        error: "Invalid userPubkey. Use a 64-character hex pubkey, npub, nostr:npub, or nprofile.",
       },
       { status: 400 }
     );

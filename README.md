@@ -25,7 +25,7 @@ Entities (e.g. beer shops) are identified by Nostr `t` tags on kind 1 notes. **B
 
 Zap totals are read from kind `9735` zap receipts. The parser now prefers the receipt `amount` tag, then the embedded `description` JSON, and finally falls back to legacy JSON in the event content. That makes live rankings more reliable across common NIP-57 receipt shapes.
 
-Trust personalization is optional. If you provide your own pubkey in the search form, the app accepts either a 64-character hex pubkey or an `npub`, normalizes it, and weights note authors by your web of trust:
+Trust personalization is optional. If you provide your own pubkey in the search form, the app accepts a 64-character hex pubkey, an `npub`, a `nostr:npub` URI, or an `nprofile`, normalizes it, and weights note authors by your web of trust:
 
 - `1.0` — you follow the author directly
 - `0.75` — someone you follow follows the author
@@ -70,7 +70,7 @@ Returns a ranked list of shops with reputation scores. Query params:
 | `endorsementWeight` | 0.25      | Weight for endorsement score                         |
 | `zapWeight`         | 0.2       | Weight for zap score                                 |
 | `trustWeight`       | 0.15      | Weight for trust score                               |
-| `userPubkey`        | —         | Optional hex pubkey or `npub` for personalized trust |
+| `userPubkey`        | —         | Optional hex pubkey, `npub`, `nostr:npub`, or `nprofile` for personalized trust |
 
 Weights are normalized to sum to 1. The UI shows each weight's live normalized share, lets you reset defaults in one click, and prevents searches when all four weights are set to 0.
 

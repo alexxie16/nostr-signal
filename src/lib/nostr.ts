@@ -212,30 +212,50 @@ function isHexPubkey(value: string): boolean {
   return /^[a-f0-9]{64}$/i.test(value);
 }
 
+function stripNostrUriPrefix(value: string): string {
+  return value.replace(/^nostr:/i, "").trim();
+}
+
+function extractPubkeyFromNip19(value: string): string | null {
+  try {
+    const decoded = nip19.decode(value);
+
+    if (decoded.type === "npub" && typeof decoded.data === "string" && isHexPubkey(decoded.data)) {
+      return decoded.data.toLowerCase();
+    }
+
+    if (
+      decoded.type === "nprofile" &&
+      decoded.data &&
+      typeof decoded.data === "object" &&
+      "pubkey" in decoded.data &&
+      typeof decoded.data.pubkey === "string" &&
+      isHexPubkey(decoded.data.pubkey)
+    ) {
+      return decoded.data.pubkey.toLowerCase();
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 /**
- * Normalize a user pubkey from hex or npub format.
+ * Normalize a user pubkey from hex, npub, nostr: URIs, or nprofile format.
  * Returns a lowercase hex pubkey, or null when the value is invalid.
  */
 export function normalizeUserPubkey(value?: string | null): string | null {
   const input = value?.trim();
   if (!input) return null;
 
-  if (isHexPubkey(input)) {
-    return input.toLowerCase();
+  const normalizedInput = stripNostrUriPrefix(input);
+
+  if (isHexPubkey(normalizedInput)) {
+    return normalizedInput.toLowerCase();
   }
 
-  if (input.toLowerCase().startsWith("npub1")) {
-    try {
-      const decoded = nip19.decode(input);
-      if (decoded.type === "npub" && typeof decoded.data === "string" && isHexPubkey(decoded.data)) {
-        return decoded.data.toLowerCase();
-      }
-    } catch {
-      return null;
-    }
-  }
-
-  return null;
+  return extractPubkeyFromNip19(normalizedInput);
 }
 
 /**

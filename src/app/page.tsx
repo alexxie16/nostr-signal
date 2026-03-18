@@ -145,7 +145,7 @@ function HomeContent() {
 
       const trimmedPubkey = paramsState.userPubkey.trim();
       if (trimmedPubkey && !normalizeUserPubkey(trimmedPubkey)) {
-        setPubkeyError("Enter a valid npub or 64-character hex pubkey to personalize trust scores.");
+        setPubkeyError("Enter a valid hex pubkey, npub, nostr:npub, or nprofile to personalize trust scores.");
         setErrorMessage(null);
         return;
       }
@@ -327,14 +327,14 @@ function HomeContent() {
                 setUserPubkey(e.target.value);
                 if (pubkeyError) setPubkeyError(null);
               }}
-              placeholder="npub1… or 64-character hex pubkey"
+              placeholder="npub1…, nostr:npub1…, nprofile1…, or 64-character hex pubkey"
               spellCheck={false}
               autoCapitalize="none"
               autoCorrect="off"
               className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
             />
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Add your pubkey to personalize trust scores from your Nostr follow graph.
+              Paste a pubkey from your client in hex, npub, nostr:npub, or nprofile format to personalize trust scores from your Nostr follow graph.
             </p>
             {pubkeyError && (
               <p className="mt-2 text-sm text-red-600 dark:text-red-400">{pubkeyError}</p>
