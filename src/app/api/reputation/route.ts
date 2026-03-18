@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchNotes, fetchReactions, fetchZaps, calculateTrustScores } from "@/lib/nostr";
+import {
+  fetchNotes,
+  fetchReactions,
+  fetchZaps,
+  calculateTrustScores,
+  normalizeUserPubkey,
+} from "@/lib/nostr";
 import {
   aggregateSignals,
   computeReputation,
@@ -27,7 +33,8 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const location = searchParams.get("location") ?? "madeira";
   const domain = searchParams.get("domain") ?? "beer-shop";
-  const userPubkey = searchParams.get("userPubkey") ?? undefined; // Optional: user's public key for trust scoring
+  const rawUserPubkey = searchParams.get("userPubkey");
+  const userPubkey = normalizeUserPubkey(rawUserPubkey);
   const weights = parseWeights(
     searchParams.get("activityWeight") ?? undefined,
     searchParams.get("endorsementWeight") ?? undefined,
@@ -36,10 +43,20 @@ export async function GET(request: NextRequest) {
   );
   const useMock = process.env.NOSTR_USE_MOCK === "true";
 
+  if (rawUserPubkey && !userPubkey) {
+    return NextResponse.json(
+      {
+        error: "Invalid userPubkey. Use a 64-character hex pubkey or an npub.",
+      },
+      { status: 400 }
+    );
+  }
+
   if (useMock) {
     return NextResponse.json({
       location,
       domain,
+      userPubkey,
       weights,
       useMock: true,
       shops: applyWeightsToShops(MOCK_REPUTATIONS, weights),
@@ -53,6 +70,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         location,
         domain,
+        userPubkey,
         weights,
         useMock: true,
         shops: applyWeightsToShops(MOCK_REPUTATIONS, weights),
@@ -66,7 +84,6 @@ export async function GET(request: NextRequest) {
       fetchZaps(noteIds),
     ]);
 
-    // Calculate trust scores if user pubkey is provided
     let authorTrustMap: Map<string, number> | undefined;
     if (userPubkey) {
       const authorPubkeys = notes.map((n) => n.pubkey);
@@ -79,6 +96,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         location,
         domain,
+        userPubkey,
         weights,
         useMock: true,
         shops: applyWeightsToShops(MOCK_REPUTATIONS, weights),
@@ -91,6 +109,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       location,
       domain,
+      userPubkey,
       weights,
       useMock: false,
       shops,
@@ -100,6 +119,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         error: "Failed to fetch reputation data",
+        userPubkey,
         useMock: true,
         weights,
         shops: applyWeightsToShops(MOCK_REPUTATIONS, weights),

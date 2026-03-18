@@ -1,4 +1,4 @@
-import { SimplePool } from "nostr-tools";
+import { SimplePool, nip19 } from "nostr-tools";
 import type { NostrEvent } from "./types";
 
 const DEFAULT_RELAYS = [
@@ -150,10 +150,12 @@ export function extractShopSlugs(
   location: string,
   domain: string
 ): string[] {
+  const normalizedLocation = location.toLowerCase().trim();
+  const normalizedDomain = domain.toLowerCase().trim();
   const tTags = note.tags.filter((t) => t[0] === "t" && t[1]);
   const slugs = tTags
     .map((t) => t[1].toLowerCase().trim())
-    .filter((s) => s !== location && s !== domain);
+    .filter((s) => s !== normalizedLocation && s !== normalizedDomain);
   return [...new Set(slugs)];
 }
 
@@ -204,6 +206,36 @@ export function parseZapAmount(zapEvent: NostrEvent): number {
   }
 
   return parseZapAmountFromJson(zapEvent.content);
+}
+
+function isHexPubkey(value: string): boolean {
+  return /^[a-f0-9]{64}$/i.test(value);
+}
+
+/**
+ * Normalize a user pubkey from hex or npub format.
+ * Returns a lowercase hex pubkey, or null when the value is invalid.
+ */
+export function normalizeUserPubkey(value?: string | null): string | null {
+  const input = value?.trim();
+  if (!input) return null;
+
+  if (isHexPubkey(input)) {
+    return input.toLowerCase();
+  }
+
+  if (input.toLowerCase().startsWith("npub1")) {
+    try {
+      const decoded = nip19.decode(input);
+      if (decoded.type === "npub" && typeof decoded.data === "string" && isHexPubkey(decoded.data)) {
+        return decoded.data.toLowerCase();
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -269,10 +301,8 @@ export async function calculateTrustScores(
 
   for (const author of uniqueAuthors) {
     if (userFollows.has(author)) {
-      // Direct follow: highest trust
       trustScores.set(author, 1.0);
     } else {
-      // Check if any followed user follows this author (distance 2)
       let foundIndirect = false;
       for (const followed of userFollows) {
         const followedList = contactLists.get(followed) ?? new Set();

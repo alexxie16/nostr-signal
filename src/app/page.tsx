@@ -6,6 +6,7 @@ import { ShopCard } from "@/components/ShopCard";
 import { PostForm } from "@/components/PostForm";
 import { NotesModal } from "@/components/NotesModal";
 import { InfoButton } from "@/components/ScoreInfo";
+import { normalizeUserPubkey } from "@/lib/nostr";
 import type { ShopReputation } from "@/lib/types";
 
 const LOCATIONS = ["madeira", "lisboa", "porto"];
@@ -31,6 +32,7 @@ interface SearchState {
   endorsementWeight: number;
   zapWeight: number;
   trustWeight: number;
+  userPubkey: string;
 }
 
 function WeightInput({
@@ -84,6 +86,8 @@ function HomeContent() {
   const [endorsementWeight, setEndorsementWeight] = useState(DEFAULT_ENDORSEMENT_WEIGHT);
   const [zapWeight, setZapWeight] = useState(DEFAULT_ZAP_WEIGHT);
   const [trustWeight, setTrustWeight] = useState(DEFAULT_TRUST_WEIGHT);
+  const [userPubkey, setUserPubkey] = useState("");
+  const [pubkeyError, setPubkeyError] = useState<string | null>(null);
   const [shops, setShops] = useState<ShopReputation[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [useMock, setUseMock] = useState<boolean | null>(null);
@@ -121,6 +125,7 @@ function HomeContent() {
         endorsementWeight,
         zapWeight,
         trustWeight,
+        userPubkey,
       };
 
       const sum =
@@ -138,6 +143,14 @@ function HomeContent() {
         return;
       }
 
+      const trimmedPubkey = paramsState.userPubkey.trim();
+      if (trimmedPubkey && !normalizeUserPubkey(trimmedPubkey)) {
+        setPubkeyError("Enter a valid npub or 64-character hex pubkey to personalize trust scores.");
+        setErrorMessage(null);
+        return;
+      }
+
+      setPubkeyError(null);
       setLoading(true);
       setShops(null);
       setUseMock(null);
@@ -154,6 +167,10 @@ function HomeContent() {
           zapWeight: String(paramsState.zapWeight),
           trustWeight: String(paramsState.trustWeight),
         });
+
+        if (trimmedPubkey) {
+          params.set("userPubkey", trimmedPubkey);
+        }
 
         router.replace(`/?${params.toString()}`, { scroll: false });
 
@@ -175,7 +192,7 @@ function HomeContent() {
         setLoading(false);
       }
     },
-    [activityWeight, domain, endorsementWeight, location, router, trustWeight, zapWeight],
+    [activityWeight, domain, endorsementWeight, location, router, trustWeight, userPubkey, zapWeight],
   );
 
   useEffect(() => {
@@ -191,6 +208,7 @@ function HomeContent() {
       endorsementWeight: parseWeight(searchParams.get("endorsementWeight"), DEFAULT_ENDORSEMENT_WEIGHT),
       zapWeight: parseWeight(searchParams.get("zapWeight"), DEFAULT_ZAP_WEIGHT),
       trustWeight: parseWeight(searchParams.get("trustWeight"), DEFAULT_TRUST_WEIGHT),
+      userPubkey: searchParams.get("userPubkey") ?? "",
     };
 
     setLocation(nextState.location);
@@ -199,6 +217,7 @@ function HomeContent() {
     setEndorsementWeight(nextState.endorsementWeight);
     setZapWeight(nextState.zapWeight);
     setTrustWeight(nextState.trustWeight);
+    setUserPubkey(nextState.userPubkey);
 
     if (
       [
@@ -208,6 +227,7 @@ function HomeContent() {
         "endorsementWeight",
         "zapWeight",
         "trustWeight",
+        "userPubkey",
       ].some((key) => searchParams.has(key))
     ) {
       void runSearch(nextState);
@@ -226,6 +246,8 @@ function HomeContent() {
     setEndorsementWeight(DEFAULT_ENDORSEMENT_WEIGHT);
     setZapWeight(DEFAULT_ZAP_WEIGHT);
     setTrustWeight(DEFAULT_TRUST_WEIGHT);
+    setUserPubkey("");
+    setPubkeyError(null);
     setShops(null);
     setUseMock(null);
     setSelectedShop(null);
@@ -289,6 +311,36 @@ function HomeContent() {
               </select>
             </div>
           </div>
+
+          <div className="mt-4">
+            <label
+              htmlFor="userPubkey"
+              className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Your Nostr pubkey <span className="text-gray-500 dark:text-gray-400">(optional)</span>
+            </label>
+            <input
+              id="userPubkey"
+              type="text"
+              value={userPubkey}
+              onChange={(e) => {
+                setUserPubkey(e.target.value);
+                if (pubkeyError) setPubkeyError(null);
+              }}
+              placeholder="npub1… or 64-character hex pubkey"
+              spellCheck={false}
+              autoCapitalize="none"
+              autoCorrect="off"
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Add your pubkey to personalize trust scores from your Nostr follow graph.
+            </p>
+            {pubkeyError && (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">{pubkeyError}</p>
+            )}
+          </div>
+
           <div className="mt-4 space-y-3 rounded-md border border-gray-200 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-700/50">
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
