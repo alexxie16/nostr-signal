@@ -12,6 +12,7 @@ import {
   parseWeights,
 } from "@/lib/reputation";
 import { MOCK_REPUTATIONS } from "@/lib/mock";
+import { DEFAULT_DOMAIN, DEFAULT_LOCATION, DOMAINS, LOCATIONS, parseSearchOption } from "@/lib/searchParams";
 
 function applyWeightsToShops(
   shops: typeof MOCK_REPUTATIONS,
@@ -31,8 +32,8 @@ function applyWeightsToShops(
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const location = searchParams.get("location") ?? "madeira";
-  const domain = searchParams.get("domain") ?? "beer-shop";
+  const location = parseSearchOption(searchParams.get("location"), LOCATIONS, DEFAULT_LOCATION);
+  const domain = parseSearchOption(searchParams.get("domain"), DOMAINS, DEFAULT_DOMAIN);
   const rawUserPubkey = searchParams.get("userPubkey");
   const userPubkey = normalizeUserPubkey(rawUserPubkey);
   const weights = parseWeights(

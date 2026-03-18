@@ -7,13 +7,15 @@ import { PostForm } from "@/components/PostForm";
 import { NotesModal } from "@/components/NotesModal";
 import { InfoButton } from "@/components/ScoreInfo";
 import { normalizeUserPubkey } from "@/lib/nostr";
+import {
+  DEFAULT_DOMAIN,
+  DEFAULT_LOCATION,
+  DOMAINS,
+  LOCATIONS,
+  parseSearchOption,
+} from "@/lib/searchParams";
 import type { ShopReputation } from "@/lib/types";
 
-const LOCATIONS = ["madeira", "lisboa", "porto"];
-const DOMAINS = ["beer-shop", "restaurant", "cafe"];
-
-const DEFAULT_LOCATION = "madeira";
-const DEFAULT_DOMAIN = "beer-shop";
 const DEFAULT_ACTIVITY_WEIGHT = 0.4;
 const DEFAULT_ENDORSEMENT_WEIGHT = 0.25;
 const DEFAULT_ZAP_WEIGHT = 0.2;
@@ -80,8 +82,8 @@ function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initializedFromUrl = useRef(false);
-  const [location, setLocation] = useState(DEFAULT_LOCATION);
-  const [domain, setDomain] = useState(DEFAULT_DOMAIN);
+  const [location, setLocation] = useState<string>(DEFAULT_LOCATION);
+  const [domain, setDomain] = useState<string>(DEFAULT_DOMAIN);
   const [activityWeight, setActivityWeight] = useState(DEFAULT_ACTIVITY_WEIGHT);
   const [endorsementWeight, setEndorsementWeight] = useState(DEFAULT_ENDORSEMENT_WEIGHT);
   const [zapWeight, setZapWeight] = useState(DEFAULT_ZAP_WEIGHT);
@@ -159,9 +161,12 @@ function HomeContent() {
       setErrorMessage(null);
 
       try {
+        const canonicalLocation = parseSearchOption(paramsState.location, LOCATIONS, DEFAULT_LOCATION);
+        const canonicalDomain = parseSearchOption(paramsState.domain, DOMAINS, DEFAULT_DOMAIN);
+
         const params = new URLSearchParams({
-          location: paramsState.location,
-          domain: paramsState.domain,
+          location: canonicalLocation,
+          domain: canonicalDomain,
           activityWeight: String(paramsState.activityWeight),
           endorsementWeight: String(paramsState.endorsementWeight),
           zapWeight: String(paramsState.zapWeight),
@@ -199,11 +204,9 @@ function HomeContent() {
     if (initializedFromUrl.current) return;
     initializedFromUrl.current = true;
 
-    const paramsLocation = searchParams.get("location") ?? DEFAULT_LOCATION;
-    const paramsDomain = searchParams.get("domain") ?? DEFAULT_DOMAIN;
     const nextState: SearchState = {
-      location: LOCATIONS.includes(paramsLocation) ? paramsLocation : DEFAULT_LOCATION,
-      domain: DOMAINS.includes(paramsDomain) ? paramsDomain : DEFAULT_DOMAIN,
+      location: parseSearchOption(searchParams.get("location"), LOCATIONS, DEFAULT_LOCATION),
+      domain: parseSearchOption(searchParams.get("domain"), DOMAINS, DEFAULT_DOMAIN),
       activityWeight: parseWeight(searchParams.get("activityWeight"), DEFAULT_ACTIVITY_WEIGHT),
       endorsementWeight: parseWeight(searchParams.get("endorsementWeight"), DEFAULT_ENDORSEMENT_WEIGHT),
       zapWeight: parseWeight(searchParams.get("zapWeight"), DEFAULT_ZAP_WEIGHT),
