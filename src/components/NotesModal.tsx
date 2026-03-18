@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { ShopReputation } from "@/lib/types";
 import type { NostrEvent } from "@/lib/types";
+import { isHexEventId } from "@/lib/nostr";
 
 interface NotesModalProps {
   shop: ShopReputation;
@@ -28,6 +29,7 @@ function shortPubkey(pk: string) {
 export function NotesModal({ shop, onClose }: NotesModalProps) {
   const [notes, setNotes] = useState<NostrEvent[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -38,20 +40,43 @@ export function NotesModal({ shop, onClose }: NotesModalProps) {
   }, [onClose]);
 
   useEffect(() => {
+    const controller = new AbortController();
     const ids = shop.raw.noteIds;
-    const realIds = ids.filter((id) => id.length === 64 && /^[a-f0-9]+$/.test(id));
+    const realIds = ids.filter(isHexEventId);
+
+    setLoading(true);
+    setError(null);
+    setNotes(null);
+
     if (realIds.length === 0) {
       setNotes([]);
       setLoading(false);
-      return;
+      return () => controller.abort();
     }
-    fetch(`/api/note?ids=${realIds.join(",")}`)
-      .then((res) => res.json())
-      .then((data) => {
+
+    fetch(`/api/note?ids=${realIds.join(",")}`, { signal: controller.signal })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error ?? "Failed to load notes");
+        }
         setNotes(data.notes ?? []);
       })
-      .catch(() => setNotes([]))
-      .finally(() => setLoading(false));
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return;
+        }
+
+        setNotes([]);
+        setError(err instanceof Error ? err.message : "Failed to load notes");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      });
+
+    return () => controller.abort();
   }, [shop.raw.noteIds]);
 
   return (
@@ -86,6 +111,10 @@ export function NotesModal({ shop, onClose }: NotesModalProps) {
         <div className="max-h-[70vh] overflow-y-auto p-4">
           {loading ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">Loading notes…</p>
+          ) : error ? (
+            <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+              {error}
+            </div>
           ) : notes && notes.length > 0 ? (
             <div className="space-y-4">
               {notes.map((note) => (
@@ -115,7 +144,7 @@ export function NotesModal({ shop, onClose }: NotesModalProps) {
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {shop.raw.noteIds.some((id) => id.startsWith("mock"))
                 ? "Demo data — notes are not stored on relays."
-                : "No notes found."}
+                : "No notes found for these event IDs on the configured relays."}
             </p>
           )}
         </div>

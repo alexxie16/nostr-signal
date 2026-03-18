@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { normalizeUserPubkey, parseZapAmount } from "./nostr.ts";
+import {
+  normalizeUserPubkey,
+  orderEventsByRequestedIds,
+  parseEventIdsParam,
+  parseZapAmount,
+} from "./nostr.ts";
 import type { NostrEvent } from "./types.ts";
 
 function createZapEvent(overrides: Partial<NostrEvent> = {}): NostrEvent {
@@ -14,6 +19,18 @@ function createZapEvent(overrides: Partial<NostrEvent> = {}): NostrEvent {
     created_at: 1,
     sig: "c".repeat(128),
     ...overrides,
+  };
+}
+
+function createNoteEvent(id: string, createdAt: number): NostrEvent {
+  return {
+    id,
+    kind: 1,
+    pubkey: "b".repeat(64),
+    content: `note-${createdAt}`,
+    tags: [],
+    created_at: createdAt,
+    sig: "c".repeat(128),
   };
 }
 
@@ -72,4 +89,45 @@ test("normalizeUserPubkey normalizes npub values to hex", () => {
 test("normalizeUserPubkey rejects invalid values", () => {
   assert.equal(normalizeUserPubkey("hello world"), null);
   assert.equal(normalizeUserPubkey("npub1invalid"), null);
+});
+
+test("parseEventIdsParam keeps valid unique ids in input order", () => {
+  const firstId = "A".repeat(64);
+  const secondId = "b".repeat(64);
+  const ids = parseEventIdsParam(` ${firstId},invalid,${secondId},${firstId} `);
+
+  assert.deepEqual(ids, [firstId.toLowerCase(), secondId]);
+});
+
+test("parseEventIdsParam caps the number of ids", () => {
+  const ids = Array.from({ length: 4 }, (_, index) => `${index.toString(16)}`.repeat(64)).join(",")
+  const parsed = parseEventIdsParam(ids, 2);
+
+  assert.equal(parsed.length, 2);
+});
+
+test("orderEventsByRequestedIds matches the requested note order", () => {
+  const firstId = "1".repeat(64);
+  const secondId = "2".repeat(64);
+  const ordered = orderEventsByRequestedIds(
+    [createNoteEvent(secondId, 20), createNoteEvent(firstId, 10)],
+    [firstId, secondId]
+  );
+
+  assert.deepEqual(
+    ordered.map((event) => event.id),
+    [firstId, secondId]
+  );
+});
+
+test("orderEventsByRequestedIds falls back to newest-first for unmatched notes", () => {
+  const ordered = orderEventsByRequestedIds(
+    [createNoteEvent("a".repeat(64), 10), createNoteEvent("b".repeat(64), 20)],
+    []
+  );
+
+  assert.deepEqual(
+    ordered.map((event) => event.created_at),
+    [20, 10]
+  );
 });

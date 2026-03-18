@@ -6,6 +6,8 @@ const DEFAULT_RELAYS = [
   "wss://relay.primal.net",
 ];
 
+const HEX_64_REGEX = /^[a-f0-9]{64}$/i;
+
 function getRelays(): string[] {
   const env = process.env.NOSTR_RELAYS;
   if (env) {
@@ -60,9 +62,57 @@ export async function fetchNotes(
   }));
 }
 
+export function isHexEventId(value: string): boolean {
+  return HEX_64_REGEX.test(value);
+}
+
+/** Normalize a raw ids query param into unique, valid event ids. */
+export function parseEventIdsParam(idsParam: string, maxIds = 50): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const rawId of idsParam.split(",")) {
+    const id = rawId.trim().toLowerCase();
+    if (!id || !isHexEventId(id) || seen.has(id)) {
+      continue;
+    }
+
+    seen.add(id);
+    result.push(id);
+
+    if (result.length >= maxIds) {
+      break;
+    }
+  }
+
+  return result;
+}
+
+/** Sort fetched notes to match the requested id order; unmatched notes keep their trailing order. */
+export function orderEventsByRequestedIds(
+  events: NostrEvent[],
+  requestedIds: string[]
+): NostrEvent[] {
+  const order = new Map(requestedIds.map((id, index) => [id.toLowerCase(), index]));
+
+  return [...events].sort((a, b) => {
+    const aIndex = order.get(a.id.toLowerCase());
+    const bIndex = order.get(b.id.toLowerCase());
+
+    if (aIndex !== undefined && bIndex !== undefined) {
+      return aIndex - bIndex;
+    }
+
+    if (aIndex !== undefined) return -1;
+    if (bIndex !== undefined) return 1;
+
+    return b.created_at - a.created_at;
+  });
+}
+
 /** Fetch kind 1 events by ID(s) */
 export async function fetchEventsByIds(ids: string[]): Promise<NostrEvent[]> {
-  const realIds = ids.filter((id) => id && id.length === 64 && /^[a-f0-9]+$/.test(id));
+  const realIds = [...new Set(ids.map((id) => id.trim().toLowerCase()).filter(isHexEventId))];
   if (realIds.length === 0) return [];
 
   const pool = new SimplePool();
@@ -77,15 +127,18 @@ export async function fetchEventsByIds(ids: string[]): Promise<NostrEvent[]> {
   const events = await pool.querySync(relays, filter);
   pool.close(relays);
 
-  return events.map((e) => ({
-    id: e.id,
-    kind: e.kind,
-    pubkey: e.pubkey,
-    content: e.content,
-    tags: e.tags,
-    created_at: e.created_at,
-    sig: e.sig,
-  }));
+  return orderEventsByRequestedIds(
+    events.map((e) => ({
+      id: e.id,
+      kind: e.kind,
+      pubkey: e.pubkey,
+      content: e.content,
+      tags: e.tags,
+      created_at: e.created_at,
+      sig: e.sig,
+    })),
+    realIds
+  );
 }
 
 /** Fetch kind 7 (reaction) events that reference the given event IDs */
@@ -209,7 +262,7 @@ export function parseZapAmount(zapEvent: NostrEvent): number {
 }
 
 function isHexPubkey(value: string): boolean {
-  return /^[a-f0-9]{64}$/i.test(value);
+  return HEX_64_REGEX.test(value);
 }
 
 /**
