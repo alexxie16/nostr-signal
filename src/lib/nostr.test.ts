@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { normalizeUserPubkey, parseZapAmount } from "./nostr.ts";
+import { normalizeEventIds, normalizeUserPubkey, parseZapAmount } from "./nostr.ts";
 import type { NostrEvent } from "./types.ts";
 
 function createZapEvent(overrides: Partial<NostrEvent> = {}): NostrEvent {
@@ -57,6 +57,19 @@ test("parseZapAmount returns zero for invalid payloads", () => {
   });
 
   assert.equal(parseZapAmount(event), 0);
+});
+
+test("normalizeEventIds lowercases, filters, and deduplicates ids", () => {
+  const uppercaseId = "A".repeat(64);
+  const lowercaseId = "b".repeat(64);
+
+  assert.deepEqual(normalizeEventIds([
+    uppercaseId,
+    ` ${lowercaseId} `,
+    uppercaseId.toLowerCase(),
+    "mock1",
+    "",
+  ]), [uppercaseId.toLowerCase(), lowercaseId]);
 });
 
 test("normalizeUserPubkey accepts lowercase hex pubkeys", () => {
