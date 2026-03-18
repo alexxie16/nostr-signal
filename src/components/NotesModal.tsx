@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { ShopReputation } from "@/lib/types";
 import type { NostrEvent } from "@/lib/types";
+import { normalizeEventIds } from "@/lib/nostr";
 
 interface NotesModalProps {
   shop: ShopReputation;
@@ -38,17 +39,22 @@ export function NotesModal({ shop, onClose }: NotesModalProps) {
   }, [onClose]);
 
   useEffect(() => {
-    const ids = shop.raw.noteIds;
-    const realIds = ids.filter((id) => id.length === 64 && /^[a-f0-9]+$/.test(id));
+    const realIds = normalizeEventIds(shop.raw.noteIds);
+    setLoading(true);
+    setNotes(null);
+
     if (realIds.length === 0) {
       setNotes([]);
       setLoading(false);
       return;
     }
+
     fetch(`/api/note?ids=${realIds.join(",")}`)
       .then((res) => res.json())
       .then((data) => {
-        setNotes(data.notes ?? []);
+        const nextNotes = Array.isArray(data.notes) ? data.notes : [];
+        nextNotes.sort((a: NostrEvent, b: NostrEvent) => b.created_at - a.created_at);
+        setNotes(nextNotes);
       })
       .catch(() => setNotes([]))
       .finally(() => setLoading(false));

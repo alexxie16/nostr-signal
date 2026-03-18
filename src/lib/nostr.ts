@@ -28,6 +28,21 @@ function hasRequiredTags(
   return tValues.includes(loc) && tValues.includes(cat);
 }
 
+function isHexId(value: string): boolean {
+  return /^[a-f0-9]{64}$/i.test(value);
+}
+
+/**
+ * Normalize Nostr event IDs to lowercase hex and deduplicate them.
+ */
+export function normalizeEventIds(ids: string[]): string[] {
+  const normalized = ids
+    .map((id) => id.trim().toLowerCase())
+    .filter((id) => isHexId(id));
+
+  return [...new Set(normalized)];
+}
+
 /** Fetch kind 1 notes that have BOTH location AND category in tags */
 export async function fetchNotes(
   location: string,
@@ -62,7 +77,7 @@ export async function fetchNotes(
 
 /** Fetch kind 1 events by ID(s) */
 export async function fetchEventsByIds(ids: string[]): Promise<NostrEvent[]> {
-  const realIds = ids.filter((id) => id && id.length === 64 && /^[a-f0-9]+$/.test(id));
+  const realIds = normalizeEventIds(ids);
   if (realIds.length === 0) return [];
 
   const pool = new SimplePool();
