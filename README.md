@@ -82,15 +82,18 @@ GET /api/note?ids=<id1>,<id2>,...
 
 Returns kind 1 note events by ID. Used to fetch note content when viewing notes for a shop.
 
-| Param | Required | Description                           |
-|-------|----------|---------------------------------------|
-| `ids` | Yes      | Comma-separated Nostr event IDs (hex) |
+| Param | Required | Description |
+|-------|----------|-------------|
+| `ids` | Yes | Comma-separated Nostr event IDs (hex). Invalid IDs are rejected, duplicates are ignored, and the API accepts up to 50 IDs per request. |
 
-Response: `{ notes: NostrEvent[] }`
+Response: `{ notes: NostrEvent[], requestedIds: string[] }`
+
+Notes are returned in the same order as the requested IDs when possible so the modal stays consistent with the ranked shop detail view.
 
 ## Validation
 
 ```bash
-npm test
+npm run lint
+npm run test
 npm run build
 ```
