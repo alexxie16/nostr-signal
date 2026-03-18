@@ -239,7 +239,15 @@ function HomeContent() {
     await runSearch();
   }
 
-  function resetSearch() {
+  function resetWeights() {
+    setActivityWeight(DEFAULT_ACTIVITY_WEIGHT);
+    setEndorsementWeight(DEFAULT_ENDORSEMENT_WEIGHT);
+    setZapWeight(DEFAULT_ZAP_WEIGHT);
+    setTrustWeight(DEFAULT_TRUST_WEIGHT);
+    setErrorMessage(null);
+  }
+
+  function clearSearch() {
     setLocation(DEFAULT_LOCATION);
     setDomain(DEFAULT_DOMAIN);
     setActivityWeight(DEFAULT_ACTIVITY_WEIGHT);
@@ -348,10 +356,10 @@ function HomeContent() {
               </p>
               <button
                 type="button"
-                onClick={resetSearch}
+                onClick={resetWeights}
                 className="text-xs font-medium text-amber-600 hover:underline dark:text-amber-400"
               >
-                Reset defaults
+                Reset weights
               </button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -392,6 +400,9 @@ function HomeContent() {
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 Raw total: {rawWeightSum.toFixed(2)}. Search normalizes these values to 100%.
               </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Reset weights keeps your location, category, pubkey, and current results intact.
+              </p>
               {!hasPositiveWeight && (
                 <p className="text-xs text-red-600 dark:text-red-400">
                   Set at least one weight above 0 to run a search.
@@ -409,11 +420,11 @@ function HomeContent() {
             </button>
             <button
               type="button"
-              onClick={resetSearch}
+              onClick={clearSearch}
               disabled={loading}
               className="w-full rounded-md border border-gray-300 px-4 py-2 font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
             >
-              Reset
+              Clear search
             </button>
           </div>
           <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
