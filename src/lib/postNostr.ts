@@ -20,14 +20,29 @@ export function hasNostrExtension(): boolean {
   return typeof window !== "undefined" && !!window.nostr;
 }
 
+export function normalizeShopSlug(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export async function postNote(
   location: string,
   domain: string,
-  shopSlug: string,
+  shopName: string,
   content: string
-): Promise<{ eventId: string } | { error: string }> {
+): Promise<{ eventId: string; shopSlug: string } | { error: string }> {
   if (!window.nostr) {
     return { error: "Nostr extension not found. Install nos2x, Alby, or similar." };
+  }
+
+  const shopSlug = normalizeShopSlug(shopName);
+  if (!shopSlug) {
+    return { error: "Shop name must contain letters or numbers." };
   }
 
   const relayUrls =
@@ -41,7 +56,7 @@ export async function postNote(
     tags: [
       ["t", location],
       ["t", domain],
-      ["t", shopSlug.toLowerCase().replace(/\s+/g, "-")],
+      ["t", shopSlug],
     ],
     content: content.trim(),
   };
@@ -64,7 +79,7 @@ export async function postNote(
     if (!ok) {
       return { error: "Failed to publish to relays" };
     }
-    return { eventId: signed.id };
+    return { eventId: signed.id, shopSlug };
   } catch (err) {
     pool.close(relayUrls);
     const msg = err instanceof Error ? err.message : "Publish failed";
